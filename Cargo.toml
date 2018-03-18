@@ -42,7 +42,8 @@ real_blackbox = []
 html_reports = ["handlebars", "criterion-plot"]
 default = ["html_reports"]
 
-[workspace]
+# NOTE(anp): disabling to be able to compile as a submodule
+# [workspace]
 
 [[bench]]
 name = "bench_main"
