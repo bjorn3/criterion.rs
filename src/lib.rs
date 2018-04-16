@@ -78,6 +78,7 @@ mod plot;
 mod html;
 
 use std::default::Default;
+use std::env;
 use std::iter::IntoIterator;
 use std::path::PathBuf;
 use std::process::Command;
@@ -439,6 +440,13 @@ impl Default for Criterion {
             reports.push(Box::new(Html::new()));
         }
 
+        // if CARGO_TARGET_DIR is set, we should respect it
+        let output_directory: PathBuf = [
+            env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| String::from("target")),
+            String::from("criterion"),
+        ].iter()
+            .collect();
+
         Criterion {
             config: BenchmarkConfig {
                 confidence_level: 0.95,
@@ -452,7 +460,7 @@ impl Default for Criterion {
             plotting: plotting,
             filter: None,
             report: Box::new(Reports::new(reports)),
-            output_directory: PathBuf::from("target/criterion"),
+            output_directory,
         }
     }
 }
