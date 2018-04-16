@@ -27,6 +27,11 @@ atty = "0.2"
 clap = "2"
 handlebars = { version = "0.31", optional = true }
 
+[target.'cfg(target_os = "linux")'.dependencies.perf_events]
+git = "https://github.com/anp/perf_events"
+rev = "6df5c83bbc11c720ba8df055e293f5f8696a92c5"
+optional = true
+
 [dev-dependencies]
 walkdir = "2.1"
 tempdir = "0.3"
@@ -39,6 +44,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 real_blackbox = []
+pmu = ["perf_events"]
 html_reports = ["handlebars", "criterion-plot"]
 default = ["html_reports"]
 

@@ -3,6 +3,7 @@ use stats::bivariate::regression::Slope;
 use stats::univariate::outliers::tukey::LabeledSample;
 
 use format;
+use metrics::EventName;
 use stats::Distribution;
 use stats::univariate::Sample;
 use estimate::{Distributions, Estimates, Statistic};
@@ -10,6 +11,7 @@ use Estimate;
 use std::io::stdout;
 use std::io::Write;
 use std::cell::Cell;
+use std::collections::BTreeMap;
 use std::fmt;
 use {PlotConfiguration, Plotting, Throughput};
 
@@ -35,6 +37,14 @@ pub(crate) struct MeasurementData<'a> {
     pub distributions: Distributions,
     pub comparison: Option<ComparisonData>,
     pub throughput: Option<Throughput>,
+    pub metrics: Option<BTreeMap<EventName, MetricMeasurementData<'a>>>,
+}
+
+pub(crate) struct MetricMeasurementData<'a> {
+    pub sample: &'a Sample<f64>,
+    pub avg: LabeledSample<'a, f64>,
+    pub absolute_estimates: Estimates,
+    pub distributions: Distributions,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::io::BufReader;
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
@@ -5,6 +6,7 @@ use std::time::{Duration, Instant};
 use std::marker::PhantomData;
 
 use DurationExt;
+use metrics::EventName;
 use routine::Routine;
 
 // A two-way channel to the standard streams of a child process
@@ -115,9 +117,14 @@ impl Routine<()> for Command {
         Some(Program::spawn(self))
     }
 
-    fn bench(&mut self, program: &mut Option<Program>, iters: &[u64], _: &()) -> Vec<f64> {
+    fn bench(
+        &mut self,
+        program: &mut Option<Program>,
+        iters: &[u64],
+        _: &(),
+    ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
         let program = program.as_mut().unwrap();
-        program.bench(iters)
+        (program.bench(iters), None)
     }
 
     fn warm_up(
@@ -159,9 +166,14 @@ where
         Some(Program::spawn(&mut command))
     }
 
-    fn bench(&mut self, program: &mut Option<Program>, iters: &[u64], _: &T) -> Vec<f64> {
+    fn bench(
+        &mut self,
+        program: &mut Option<Program>,
+        iters: &[u64],
+        _: &T,
+    ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
         let program = program.as_mut().unwrap();
-        program.bench(iters)
+        (program.bench(iters), None)
     }
 
     fn warm_up(

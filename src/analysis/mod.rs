@@ -8,6 +8,7 @@ use stats::univariate::Sample;
 use stats::univariate::outliers::tukey::{self, LabeledSample};
 
 use estimate::{Distributions, Estimates, Statistic};
+use metrics::EventName;
 use routine::Routine;
 use benchmark::BenchmarkConfig;
 use {ConfidenceInterval, Criterion, Estimate, Throughput};
@@ -40,7 +41,8 @@ pub(crate) fn common<T>(
 ) {
     criterion.report.benchmark_start(id, report_context);
 
-    let (iters, times) = routine.sample(id, config, criterion, report_context, parameter);
+    let (iters, times, raw_metrics) =
+        routine.sample(id, config, criterion, report_context, parameter);
 
     criterion.report.analysis(id, report_context);
 
@@ -74,6 +76,62 @@ pub(crate) fn common<T>(
         &estimates,
         &format!("{}/{}/new/estimates.json", criterion.output_directory, id)
     ));
+
+    let mut vals = BTreeMap::new();
+    let mut avg_vals = BTreeMap::new();
+    let mut metrics: BTreeMap<EventName, _> = BTreeMap::new();
+    if let Some(ref m) = raw_metrics {
+        for (name, mut values) in m {
+            let values = values.into_iter().map(|&v| v as f64).collect::<Vec<f64>>();
+            let avg_values = iters
+                .iter()
+                .zip(values.iter())
+                .map(|(&i, &v)| v / i)
+                .collect::<Vec<f64>>();
+
+            // need to hoist ownership to parent stack frame in order to store
+            // references to these
+            vals.insert(name, values);
+            avg_vals.insert(name, avg_values);
+        }
+
+        for (name, _) in m {
+            let values = &vals[name];
+            let avg_values = &avg_vals[name];
+
+            let avg_values = Sample::new(avg_values.as_slice());
+
+            let data = Data::new(&iters, &values);
+            let labeled_sample = tukey::classify(avg_values);
+            let (distribution, slope) = regression(data, config);
+            let (mut distributions, mut absolute_estimates) = self::estimates(avg_values, config);
+
+            absolute_estimates.insert(Statistic::Slope, slope);
+            distributions.insert(Statistic::Slope, distribution);
+
+            let measurement = ::report::MetricMeasurementData {
+                sample: Sample::new(&values),
+                avg: labeled_sample,
+                absolute_estimates: absolute_estimates.clone(),
+                distributions,
+            };
+
+            metrics.insert(name.clone(), measurement);
+        }
+
+        let estimates_to_write: BTreeMap<_, _> = metrics
+            .iter()
+            .map(|(name, measures)| (name, &measures.absolute_estimates))
+            .collect();
+
+        log_if_err!(fs::save(
+            &estimates_to_write,
+            &format!(
+                "{}/{}/new/metrics-estimates.json",
+                criterion.output_directory, id
+            )
+        ));
+    };
 
     let compare_data = if base_dir_exists(id, &criterion.output_directory) {
         let result = compare::common(id, avg_times, config, criterion);
@@ -120,6 +178,11 @@ pub(crate) fn common<T>(
         distributions: distributions,
         comparison: compare_data,
         throughput: throughput,
+        metrics: if metrics.len() > 0 {
+            Some(metrics)
+        } else {
+            None
+        },
     };
 
     criterion

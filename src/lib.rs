@@ -30,6 +30,9 @@ extern crate serde;
 extern crate serde_json;
 extern crate simplelog;
 
+#[cfg(all(feature = "pmu", target_os = "linux"))]
+extern crate perf_events;
+
 #[cfg(feature = "html_reports")]
 extern crate criterion_plot;
 
@@ -59,6 +62,7 @@ mod error;
 mod estimate;
 mod format;
 mod fs;
+mod metrics;
 mod program;
 mod report;
 mod routine;
@@ -963,7 +967,7 @@ impl Estimate {
 /// Enum representing different ways of measuring the throughput of benchmarked code.
 /// If the throughput setting is configured for a benchmark then the estimated throughput will
 /// be reported as well as the time per iteration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Throughput {
     /// Measure throughput in terms of bytes/second. The value should be the number of bytes
     /// processed by one iteration of the benchmarked code. Typically, this would be the length of

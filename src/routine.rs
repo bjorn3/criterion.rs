@@ -1,17 +1,24 @@
-use std::time::{Duration, Instant};
+use std::collections::BTreeMap;
 use benchmark::BenchmarkConfig;
+use std::time::{Duration, Instant};
 
-use {Bencher, Criterion, DurationExt};
+use metrics::{measure_fn, EventName};
 use program::Program;
-use std::marker::PhantomData;
 use report::{BenchmarkId, ReportContext};
+use std::marker::PhantomData;
+use {Bencher, Criterion, DurationExt};
 
 /// PRIVATE
 pub trait Routine<T> {
     fn start(&mut self, parameter: &T) -> Option<Program>;
 
     /// PRIVATE
-    fn bench(&mut self, m: &mut Option<Program>, iters: &[u64], parameter: &T) -> Vec<f64>;
+    fn bench(
+        &mut self,
+        m: &mut Option<Program>,
+        iters: &[u64],
+        parameter: &T,
+    ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>);
     /// PRIVATE
     fn warm_up(&mut self, m: &mut Option<Program>, how_long: Duration, parameter: &T)
         -> (u64, u64);
@@ -24,7 +31,11 @@ pub trait Routine<T> {
         criterion: &Criterion,
         report_context: &ReportContext,
         parameter: &T,
-    ) -> (Box<[f64]>, Box<[f64]>) {
+    ) -> (
+        Box<[f64]>,
+        Box<[f64]>,
+        Option<BTreeMap<EventName, Box<[u64]>>>,
+    ) {
         let wu = config.warm_up_time;
         let m_ns = config.measurement_time.to_nanos();
 
@@ -50,11 +61,23 @@ pub trait Routine<T> {
         criterion
             .report
             .measurement_start(id, report_context, n, m_ns, m_iters.iter().sum());
-        let m_elapsed = self.bench(&mut m, &m_iters, parameter);
+
+        let (m_elapsed, m_metrics) = self.bench(&mut m, &m_iters, parameter);
 
         let m_iters_f: Vec<f64> = m_iters.iter().map(|&x| x as f64).collect();
 
-        (m_iters_f.into_boxed_slice(), m_elapsed.into_boxed_slice())
+        (
+            m_iters_f.into_boxed_slice(),
+            m_elapsed.into_boxed_slice(),
+            m_metrics
+                .into_iter()
+                .map(|m| {
+                    m.into_iter()
+                        .map(|(n, v)| (n, v.into_boxed_slice()))
+                        .collect()
+                })
+                .next(),
+        )
     }
 }
 
@@ -85,22 +108,55 @@ where
         None
     }
 
-    fn bench(&mut self, _: &mut Option<Program>, iters: &[u64], parameter: &T) -> Vec<f64> {
-        let f = &mut self.f;
-
+    fn bench(
+        &mut self,
+        _: &mut Option<Program>,
+        iters: &[u64],
+        parameter: &T,
+    ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
         let mut b = Bencher {
             iters: 0,
             elapsed: Duration::from_secs(0),
         };
 
-        iters
-            .iter()
-            .map(|iters| {
-                b.iters = *iters;
-                (*f)(&mut b, parameter);
+        let mut times = Vec::new();
+        let mut metrics = BTreeMap::new();
+        for &i in iters {
+            b.iters = i;
+
+            let (time, run_metrics) = measure_fn(|| {
+                (self.f)(&mut b, parameter);
                 b.elapsed.to_nanos() as f64
-            })
-            .collect()
+            });
+
+            times.push(time);
+
+            if let Some(run_metrics) = run_metrics {
+                for (n, v) in run_metrics {
+                    metrics.entry(n).or_insert_with(|| Vec::new()).push(v);
+                }
+            }
+        }
+
+        let mut return_recorded_metrics = false;
+        {
+            let mut lengths = metrics.iter().map(|(_, v)| v.len());
+            let first = lengths.next();
+            if let Some(first) = first {
+                // TODO warn that some metrics were uneven
+                if !lengths.all(|l| l == first) {
+                    panic!("metrics out of sync!");
+                } else {
+                    return_recorded_metrics = true;
+                }
+            }
+        }
+
+        if return_recorded_metrics {
+            (times, Some(metrics))
+        } else {
+            (times, None)
+        }
     }
 
     fn warm_up(
