@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::iter;
 
 use criterion_plot::prelude::*;
@@ -15,18 +15,16 @@ use super::{DARK_BLUE, DARK_RED, DEFAULT_FONT, KDE_POINTS, LINEWIDTH, SIZE};
 use report::BenchmarkId;
 
 #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
-pub(crate) fn regression(
+pub(crate) fn regression<P: AsRef<Path>>(
     base_data: Data<f64, f64>,
     base_estimates: &Estimates,
     data: Data<f64, f64>,
     estimates: &Estimates,
     id: &BenchmarkId,
-    path: String,
+    path: P,
     size: Option<Size>,
     thumbnail_mode: bool,
 ) -> Child {
-    let path = PathBuf::from(path);
-
     let max_iters = base_data.x().max().max(data.x().max());
     let max_elapsed = base_data.y().max().max(data.y().max());
 
@@ -130,19 +128,17 @@ pub(crate) fn regression(
             },
         );
     debug_script(&path, &figure);
-    figure.set(Output(path)).draw().unwrap()
+    figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }
 
-pub fn pdfs(
+pub fn pdfs<P: AsRef<Path>>(
     base_avg_times: &Sample<f64>,
     avg_times: &Sample<f64>,
     id: &BenchmarkId,
-    path: String,
+    path: P,
     size: Option<Size>,
     thumbnail_mode: bool,
 ) -> Child {
-    let path = PathBuf::from(path);
-
     let base_mean = base_avg_times.mean();
     let new_mean = avg_times.mean();
 
@@ -207,5 +203,5 @@ pub fn pdfs(
             |c| c.set(DARK_BLUE).set(Label("New Mean")).set(LINEWIDTH),
         );
     debug_script(&path, &figure);
-    figure.set(Output(path)).draw().unwrap()
+    figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }

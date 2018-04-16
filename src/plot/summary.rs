@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Child;
 use std::cmp::Ordering;
 
@@ -36,14 +36,13 @@ impl AxisScale {
 }
 
 #[cfg_attr(feature = "cargo-clippy", allow(explicit_counter_loop))]
-pub fn line_comparison(
+pub fn line_comparison<P: AsRef<Path>>(
     group_id: &str,
     all_curves: &[&(BenchmarkId, Vec<f64>)],
-    path: &str,
+    path: P,
     value_type: ValueType,
     axis_scale: AxisScale,
 ) -> Child {
-    let path = PathBuf::from(path);
     let mut f = Figure::new();
 
     let input_suffix = match value_type {
@@ -125,16 +124,15 @@ pub fn line_comparison(
     });
 
     debug_script(&path, &f);
-    f.set(Output(path)).draw().unwrap()
+    f.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }
 
-pub fn violin(
+pub fn violin<P: AsRef<Path>>(
     group_id: &str,
     all_curves: &[&(BenchmarkId, Vec<f64>)],
-    path: &str,
+    path: P,
     axis_scale: AxisScale,
 ) -> Child {
-    let path = PathBuf::from(&path);
     let all_curves_vec = all_curves.iter().rev().map(|&t| t).collect::<Vec<_>>();
     let all_curves: &[&(BenchmarkId, Vec<f64>)] = &*all_curves_vec;
 
@@ -217,5 +215,5 @@ pub fn violin(
         );
     }
     debug_script(&path, &f);
-    f.set(Output(path)).draw().unwrap()
+    f.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }

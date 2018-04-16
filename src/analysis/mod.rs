@@ -46,7 +46,10 @@ pub(crate) fn common<T>(
 
     criterion.report.analysis(id, report_context);
 
-    rename_new_dir_to_base(id.id(), &criterion.output_directory);
+    let id_path = criterion.output_directory.join(id.to_string());
+    let new_dir_path = id_path.join("new");
+    let base_dir_path = id_path.join("base");
+    rename_new_dir_to_base(&base_dir_path, &new_dir_path);
 
     let avg_times = iters
         .iter()
@@ -55,13 +58,10 @@ pub(crate) fn common<T>(
         .collect::<Vec<f64>>();
     let avg_times = Sample::new(&avg_times);
 
-    log_if_err!(fs::mkdirp(&format!(
-        "{}/{}/new",
-        criterion.output_directory, id
-    )));
+    log_if_err!(fs::mkdirp(&new_dir_path));
 
     let data = Data::new(&iters, &times);
-    let labeled_sample = outliers(id, &criterion.output_directory, avg_times);
+    let labeled_sample = outliers(&new_dir_path, avg_times);
     let (distribution, slope) = regression(data, config);
     let (mut distributions, mut estimates) = estimates(avg_times, config);
 
@@ -70,12 +70,9 @@ pub(crate) fn common<T>(
 
     log_if_err!(fs::save(
         &(data.x().as_slice(), data.y().as_slice()),
-        &format!("{}/{}/new/sample.json", criterion.output_directory, id),
+        &new_dir_path.join("sample.json"),
     ));
-    log_if_err!(fs::save(
-        &estimates,
-        &format!("{}/{}/new/estimates.json", criterion.output_directory, id)
-    ));
+    log_if_err!(fs::save(&estimates, &new_dir_path.join("estimates.json"),));
 
     let mut vals = BTreeMap::new();
     let mut avg_vals = BTreeMap::new();
@@ -126,14 +123,11 @@ pub(crate) fn common<T>(
 
         log_if_err!(fs::save(
             &estimates_to_write,
-            &format!(
-                "{}/{}/new/metrics-estimates.json",
-                criterion.output_directory, id
-            )
+            &new_dir_path.join("metrics-estimates.json"),
         ));
     };
 
-    let compare_data = if base_dir_exists(id, &criterion.output_directory) {
+    let compare_data = if base_dir_path.exists() {
         let result = compare::common(id, avg_times, config, criterion);
         match result {
             Ok((
@@ -190,10 +184,6 @@ pub(crate) fn common<T>(
         .measurement_complete(id, report_context, &measurement_data);
 }
 
-fn base_dir_exists(id: &BenchmarkId, output_directory: &str) -> bool {
-    Path::new(&format!("{}/{}/base", output_directory, id)).exists()
-}
-
 // Performs a simple linear regression on the sample
 fn regression(data: Data<f64, f64>, config: &BenchmarkConfig) -> (Distribution<f64>, Estimate) {
     let cl = config.confidence_level;
@@ -222,15 +212,14 @@ fn regression(data: Data<f64, f64>, config: &BenchmarkConfig) -> (Distribution<f
 }
 
 // Classifies the outliers in the sample
-fn outliers<'a>(
-    id: &BenchmarkId,
-    output_directory: &str,
+fn outliers<'a, P: AsRef<Path>>(
+    new_directory: P,
     avg_times: &'a Sample<f64>,
 ) -> LabeledSample<'a, f64> {
     let sample = tukey::classify(avg_times);
     log_if_err!(fs::save(
         &sample.fences(),
-        &format!("{}/{}/new/tukey.json", output_directory, id)
+        &new_directory.as_ref().join("tukey.json")
     ));
     sample
 }
@@ -272,15 +261,12 @@ fn estimates(avg_times: &Sample<f64>, config: &BenchmarkConfig) -> (Distribution
     (distributions, estimates)
 }
 
-fn rename_new_dir_to_base(id: &str, output_directory: &str) {
-    let root_dir = Path::new(output_directory).join(id);
-    let base_dir = root_dir.join("base");
-    let new_dir = root_dir.join("new");
-
-    if base_dir.exists() {
-        try_else_return!(fs::rmrf(&base_dir));
+fn rename_new_dir_to_base<P: AsRef<Path>>(base: P, new: P) {
+    let (base, new) = (base.as_ref(), new.as_ref());
+    if base.exists() {
+        try_else_return!(fs::rmrf(base));
     }
-    if new_dir.exists() {
-        try_else_return!(fs::mv(&new_dir, &base_dir));
+    if new.exists() {
+        try_else_return!(fs::mv(new, base));
     };
 }

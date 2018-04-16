@@ -30,13 +30,11 @@ pub(crate) fn common(
         Estimates,
     ),
 > {
-    let sample_dir = format!("{}/{}/base/sample.json", criterion.output_directory, id);
-    let (iters, times): (Vec<f64>, Vec<f64>) = fs::load(&sample_dir)?;
+    let base_dir = criterion.output_directory.join(id.to_string()).join("base");
+    let sample_path = base_dir.join("sample.json");
+    let (iters, times): (Vec<f64>, Vec<f64>) = fs::load(&sample_path)?;
 
-    let base_estimates: Estimates = fs::load(&format!(
-        "{}/{}/base/estimates.json",
-        criterion.output_directory, id
-    ))?;
+    let base_estimates: Estimates = fs::load(&base_dir.join("estimates.json"))?;
 
     let base_avg_times: Vec<f64> = iters
         .iter()
@@ -45,7 +43,10 @@ pub(crate) fn common(
         .collect();
     let base_avg_time_sample = Sample::new(&base_avg_times);
 
-    fs::mkdirp(&format!("{}/{}/change", criterion.output_directory, id))?;
+    fs::mkdirp(&criterion
+        .output_directory
+        .join(id.to_string())
+        .join("change"))?;
     let (t_statistic, t_distribution) = t_test(avg_times, base_avg_time_sample, config);
 
     let (estimates, relative_distributions) =
@@ -116,10 +117,11 @@ fn estimates(
     {
         log_if_err!(fs::save(
             &estimates,
-            &format!(
-                "{}/{}/change/estimates.json",
-                criterion.output_directory, id
-            )
+            &criterion
+                .output_directory
+                .join(id.to_string())
+                .join("change")
+                .join("estimates.json")
         ));
     }
     (estimates, distributions)

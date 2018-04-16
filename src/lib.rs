@@ -79,6 +79,7 @@ mod html;
 
 use std::default::Default;
 use std::iter::IntoIterator;
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::{Duration, Instant};
 use std::{fmt, mem};
@@ -404,7 +405,7 @@ pub struct Criterion {
     plotting: Plotting,
     filter: Option<String>,
     report: Box<Report>,
-    output_directory: String,
+    output_directory: PathBuf,
 }
 
 impl Default for Criterion {
@@ -451,7 +452,7 @@ impl Default for Criterion {
             plotting: plotting,
             filter: None,
             report: Box::new(Reports::new(reports)),
-            output_directory: "target/criterion".to_owned(),
+            output_directory: PathBuf::from("target/criterion"),
         }
     }
 }
@@ -607,7 +608,7 @@ impl Criterion {
     /// Set the output directory (currently for testing only)
     #[doc(hidden)]
     pub fn output_directory(mut self, path: &std::path::Path) -> Criterion {
-        self.output_directory = path.to_string_lossy().into_owned();
+        self.output_directory = path.to_owned();
 
         self
     }

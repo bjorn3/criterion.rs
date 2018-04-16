@@ -13,6 +13,7 @@ use std::io::Write;
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::path::PathBuf;
 use {PlotConfiguration, Plotting, Throughput};
 
 pub(crate) struct ComparisonData {
@@ -135,7 +136,7 @@ impl fmt::Debug for BenchmarkId {
 }
 
 pub struct ReportContext {
-    pub output_directory: String,
+    pub output_directory: PathBuf,
     pub plotting: Plotting,
     pub plot_config: PlotConfiguration,
 }

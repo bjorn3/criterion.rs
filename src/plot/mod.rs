@@ -1,5 +1,5 @@
 use std::iter;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Child;
 
 use criterion_plot::prelude::*;
@@ -45,9 +45,9 @@ const DARK_BLUE: Color = Color::Rgb(31, 120, 180);
 const DARK_ORANGE: Color = Color::Rgb(255, 127, 0);
 const DARK_RED: Color = Color::Rgb(227, 26, 28);
 
-fn debug_script(path: &PathBuf, figure: &Figure) {
+fn debug_script<P: AsRef<Path>>(path: P, figure: &Figure) {
     if ::debug_enabled() {
-        let mut script_path = path.clone();
+        let mut script_path = path.as_ref().to_owned();
         script_path.set_extension("gnuplot");
         println!("Writing gnuplot script to {:?}", script_path);
         let result = figure.save(script_path.as_path());
@@ -57,8 +57,7 @@ fn debug_script(path: &PathBuf, figure: &Figure) {
     }
 }
 
-pub fn pdf_small(sample: &Sample<f64>, path: String, size: Option<Size>) -> Child {
-    let path = PathBuf::from(path);
+pub fn pdf_small<P: AsRef<Path>>(sample: &Sample<f64>, path: P, size: Option<Size>) -> Child {
     let (x_scale, prefix) = scale_time(sample.max());
     let mean = sample.mean();
 
@@ -106,17 +105,16 @@ pub fn pdf_small(sample: &Sample<f64>, path: String, size: Option<Size>) -> Chil
         );
 
     debug_script(&path, &figure);
-    figure.set(Output(path)).draw().unwrap()
+    figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }
 
-pub fn pdf(
+pub fn pdf<P: AsRef<Path>>(
     data: Data<f64, f64>,
     labeled_sample: LabeledSample<f64>,
     id: &BenchmarkId,
-    path: String,
+    path: P,
     size: Option<Size>,
 ) -> Child {
-    let path = PathBuf::from(path);
     let (x_scale, prefix) = scale_time(labeled_sample.max());
     let mean = labeled_sample.mean();
 
@@ -309,20 +307,18 @@ pub fn pdf(
     figure.set(Title(escape_underscores(id.id())));
 
     debug_script(&path, &figure);
-    figure.set(Output(path)).draw().unwrap()
+    figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }
 
-pub fn regression(
+pub fn regression<P: AsRef<Path>>(
     data: Data<f64, f64>,
     point: &Slope<f64>,
     (lb, ub): (Slope<f64>, Slope<f64>),
     id: &BenchmarkId,
-    path: String,
+    path: P,
     size: Option<Size>,
     thumbnail_mode: bool,
 ) -> Child {
-    let path = PathBuf::from(path);
-
     let (max_iters, max_elapsed) = (data.x().max(), data.y().max());
 
     let (y_scale, prefix) = scale_time(max_elapsed);
@@ -404,22 +400,23 @@ pub fn regression(
     }
 
     debug_script(&path, &figure);
-    figure.set(Output(path)).draw().unwrap()
+    figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
 }
 
-pub(crate) fn abs_distributions(
+pub(crate) fn abs_distributions<P: AsRef<Path>>(
     distributions: &Distributions,
     estimates: &Estimates,
     id: &BenchmarkId,
-    output_directory: &str,
+    output_directory: P,
 ) -> Vec<Child> {
     distributions
         .iter()
         .map(|(&statistic, distribution)| {
-            let path = PathBuf::from(format!(
-                "{}/{}/report/{}.svg",
-                output_directory, id, statistic
-            ));
+            let path = output_directory
+                .as_ref()
+                .join(id.to_string())
+                .join("report")
+                .join(format!("{}.svg", statistic));
             let estimate = estimates[&statistic];
 
             let ci = estimate.confidence_interval;
@@ -509,11 +506,11 @@ pub(crate) fn abs_distributions(
 }
 
 // TODO DRY: This is very similar to the `abs_distributions` method
-pub(crate) fn rel_distributions(
+pub(crate) fn rel_distributions<P: AsRef<Path>>(
     distributions: &Distributions,
     estimates: &Estimates,
     id: &BenchmarkId,
-    output_directory: &str,
+    output_directory: P,
     nt: f64,
 ) -> Vec<Child> {
     let mut figure = Figure::new();
@@ -531,10 +528,12 @@ pub(crate) fn rel_distributions(
     distributions
         .iter()
         .map(|(&statistic, distribution)| {
-            let path = PathBuf::from(format!(
-                "{}/{}/report/change/{}.svg",
-                output_directory, id, statistic
-            ));
+            let path = output_directory
+                .as_ref()
+                .join(id.to_string())
+                .join("report")
+                .join("change")
+                .join(format!("{}.svg", statistic));
 
             let estimate = estimates[&statistic];
             let ci = estimate.confidence_interval;
@@ -637,16 +636,18 @@ pub(crate) fn rel_distributions(
         .collect::<Vec<_>>()
 }
 
-pub fn t_test(
+pub fn t_test<P: AsRef<Path>>(
     t: f64,
     distribution: &Distribution<f64>,
     id: &BenchmarkId,
-    output_directory: &str,
+    output_directory: P,
 ) -> Child {
-    let path = PathBuf::from(format!(
-        "{}/{}/report/change/t-test.svg",
-        output_directory, id
-    ));
+    let path = output_directory
+        .as_ref()
+        .join(id.to_string())
+        .join("report")
+        .join("change")
+        .join("t-test.svg");
 
     let (xs, ys) = kde::sweep(distribution, KDE_POINTS, None);
     let zero = iter::repeat(0);

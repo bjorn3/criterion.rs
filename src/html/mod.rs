@@ -12,7 +12,7 @@ use criterion_plot::Size;
 use stats::univariate::Sample;
 use std::process::Child;
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const THUMBNAIL_SIZE: Size = Size(450, 300);
 
@@ -76,8 +76,8 @@ struct SummaryContext {
     thumbnail_width: usize,
     thumbnail_height: usize,
 
-    violin_plot: Option<String>,
-    line_chart: Option<String>,
+    violin_plot: Option<PathBuf>,
+    line_chart: Option<PathBuf>,
 
     benchmarks: Vec<IndividualBenchmark>,
 }
@@ -147,10 +147,10 @@ impl Report for Html {
             return;
         }
 
-        try_else_return!(fs::mkdirp(&format!(
-            "{}/{}/report/",
-            report_context.output_directory, id
-        )));
+        try_else_return!(fs::mkdirp(&report_context
+            .output_directory
+            .join(id.to_string())
+            .join("report")));
 
         let slope_estimate = &measurements.absolute_estimates[&Statistic::Slope];
 
@@ -226,10 +226,11 @@ impl Report for Html {
             .expect("Failed to render benchmark report template");
         try_else_return!(fs::save_string(
             &text,
-            &format!(
-                "{}/{}/report/index.html",
-                report_context.output_directory, id
-            ),
+            &report_context
+                .output_directory
+                .join(id.to_string())
+                .join("report")
+                .join("index.html")
         ));
     }
 
@@ -341,13 +342,14 @@ impl Html {
             slope_dist.confidence_interval(slope_estimate.confidence_interval.confidence_level);
         let (lb_, ub_) = (Slope(lb), Slope(ub));
 
+        let report_dir = context.output_directory.join(id.to_string()).join("report");
         let mut gnuplots = vec![];
 
         gnuplots.push(plot::pdf(
             data,
             measurements.avg_times,
             id,
-            format!("{}/{}/report/pdf.svg", context.output_directory, id),
+            report_dir.join("pdf.svg"),
             None,
         ));
         gnuplots.extend(plot::abs_distributions(
@@ -361,13 +363,13 @@ impl Html {
             &point,
             (lb_, ub_),
             id,
-            format!("{}/{}/report/regression.svg", context.output_directory, id),
+            report_dir.join("regression.svg"),
             None,
             false,
         ));
         gnuplots.push(plot::pdf_small(
             &*measurements.avg_times,
-            format!("{}/{}/report/pdf_small.svg", context.output_directory, id),
+            report_dir.join("pdf_small.svg"),
             Some(THUMBNAIL_SIZE),
         ));
         gnuplots.push(plot::regression(
@@ -375,36 +377,25 @@ impl Html {
             &point,
             (lb_, ub_),
             id,
-            format!(
-                "{}/{}/report/regression_small.svg",
-                context.output_directory, id
-            ),
+            report_dir.join("regression_small.svg"),
             Some(THUMBNAIL_SIZE),
             true,
         ));
 
         if let Some(ref comp) = measurements.comparison {
-            try_else_return!(fs::mkdirp(&format!(
-                "{}/{}/report/change/",
-                context.output_directory, id
-            )));
+            try_else_return!(fs::mkdirp(&report_dir.join("change")));
 
             let base_data = Data::new(&comp.base_iter_counts, &comp.base_sample_times);
 
-            try_else_return!(fs::mkdirp(&format!(
-                "{}/{}/report/both",
-                context.output_directory, id
-            )));
+            let both_dir = report_dir.join("both");
+            try_else_return!(fs::mkdirp(&both_dir));
             gnuplots.push(plot::both::regression(
                 base_data,
                 &comp.base_estimates,
                 data,
                 &measurements.absolute_estimates,
                 id,
-                format!(
-                    "{}/{}/report/both/regression.svg",
-                    context.output_directory, id
-                ),
+                both_dir.join("regression.svg"),
                 None,
                 false,
             ));
@@ -412,7 +403,7 @@ impl Html {
                 Sample::new(&comp.base_avg_times),
                 &*measurements.avg_times,
                 id,
-                format!("{}/{}/report/both/pdf.svg", context.output_directory, id),
+                both_dir.join("pdf.svg"),
                 None,
                 false,
             ));
@@ -435,10 +426,7 @@ impl Html {
                 data,
                 &measurements.absolute_estimates,
                 id,
-                format!(
-                    "{}/{}/report/relative_regression_small.svg",
-                    context.output_directory, id
-                ),
+                report_dir.join("relative_regression_small.svg"),
                 Some(THUMBNAIL_SIZE),
                 true,
             ));
@@ -446,10 +434,7 @@ impl Html {
                 Sample::new(&comp.base_avg_times),
                 &*measurements.avg_times,
                 id,
-                format!(
-                    "{}/{}/report/relative_pdf_small.svg",
-                    context.output_directory, id
-                ),
+                report_dir.join("relative_pdf_small.svg"),
                 Some(THUMBNAIL_SIZE),
                 true,
             ));
@@ -458,13 +443,12 @@ impl Html {
         wait_on_gnuplot(gnuplots);
     }
 
-    fn load_summary_data(
+    fn load_summary_data<P: AsRef<Path>>(
         &self,
-        output_directory: &str,
+        output_dir: P,
         all_ids: &[BenchmarkId],
     ) -> Vec<(BenchmarkId, Vec<f64>)> {
-        let output_dir = Path::new(output_directory);
-
+        let output_dir = output_dir.as_ref();
         all_ids
             .iter()
             .filter_map(|id| {
@@ -492,18 +476,15 @@ impl Html {
     ) -> Vec<Child> {
         let mut gnuplots = vec![];
 
-        try_else_return!(
-            fs::mkdirp(&format!(
-                "{}/{}/report/",
-                report_context.output_directory, group_id
-            )),
-            || gnuplots
-        );
+        let report_dir = report_context
+            .output_directory
+            .join(group_id)
+            .join("report");
 
-        let violin_path = format!(
-            "{}/{}/report/violin.svg",
-            report_context.output_directory, group_id
-        );
+        try_else_return!(fs::mkdirp(&report_dir), || gnuplots);
+
+        let violin_path = report_dir.join("violin.svg");
+
         gnuplots.push(plot::summary::violin(
             group_id,
             data,
@@ -519,10 +500,7 @@ impl Html {
 
         if value_types.iter().all(|x| x == &value_types[0]) && function_types.len() > 1 {
             if let Some(value_type) = value_types[0] {
-                let path = format!(
-                    "{}/{}/report/lines.svg",
-                    report_context.output_directory, group_id
-                );
+                let path = report_dir.join("lines.svg");
 
                 gnuplots.push(plot::summary::line_comparison(
                     group_id,
@@ -561,13 +539,7 @@ impl Html {
             .render("summary_report", &context)
             .expect("Failed to render summary report template");
         try_else_return!(
-            fs::save_string(
-                &text,
-                &format!(
-                    "{}/{}/report/index.html",
-                    report_context.output_directory, group_id
-                ),
-            ),
+            fs::save_string(&text, &report_dir.join("index.html")),
             || gnuplots
         );
 
