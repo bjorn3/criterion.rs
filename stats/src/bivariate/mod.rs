@@ -5,7 +5,7 @@ mod resamples;
 
 pub mod regression;
 
-use std::{cmp, mem};
+use std::cmp;
 
 use float::Float;
 use num_cpus;
@@ -28,7 +28,6 @@ where
 
 impl<'a, X, Y> Copy for Data<'a, X, Y> {}
 
-#[cfg_attr(feature = "cargo-clippy", allow(expl_impl_clone_on_copy))]
 impl<'a, X, Y> Clone for Data<'a, X, Y> {
     fn clone(&self) -> Data<'a, X, Y> {
         *self
@@ -128,12 +127,12 @@ where
 
     /// Returns a view into the `X` data
     pub fn x(&self) -> &'a Sample<X> {
-        unsafe { mem::transmute(self.0) }
+        unsafe { &*(self.0 as *const [X] as *const Sample<X>) }
     }
 
     /// Returns a view into the `Y` data
     pub fn y(&self) -> &'a Sample<Y> {
-        unsafe { mem::transmute(self.1) }
+        unsafe { &*(self.1 as *const [Y] as *const Sample<Y>) }
     }
 }
 

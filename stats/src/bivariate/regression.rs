@@ -72,7 +72,6 @@ where
     /// Fits the data to a straight line using ordinary least squares
     ///
     /// - Time: `O(length)`
-    #[cfg_attr(feature = "cargo-clippy", allow(similar_names))]
     pub fn fit(data: Data<A, A>) -> StraightLine<A> {
         let xs = data.0;
         let ys = data.1;
@@ -96,8 +95,8 @@ where
         let intercept = y_bar - slope * x_bar;
 
         StraightLine {
-            intercept: intercept,
-            slope: slope,
+            intercept,
+            slope,
         }
     }
 

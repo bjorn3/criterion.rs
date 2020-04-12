@@ -42,18 +42,18 @@ impl Matrix {
     {
         let ncols = I::Item::ncols();
         let bytes_per_row = ncols * mem::size_of::<f64>();
-        let mut buffer = Vec::with_capacity(rows.size_hint().0 * bytes_per_row);
+        let mut bytes = Vec::with_capacity(rows.size_hint().0 * bytes_per_row);
 
         let mut nrows = 0;
         for row in rows {
             nrows += 1;
-            row.append_to(&mut buffer, scale);
+            row.append_to(&mut bytes, scale);
         }
 
         Matrix {
-            bytes: buffer,
-            ncols: ncols,
-            nrows: nrows,
+            bytes,
+            ncols,
+            nrows,
         }
     }
 
@@ -154,7 +154,7 @@ where
 {
     type Scale = (f64, f64, f64, f64, f64);
 
-    #[cfg_attr(feature = "cargo-clippy", allow(many_single_char_names))]
+    #[allow(clippy::many_single_char_names)]
     fn append_to(self, buffer: &mut Vec<u8>, scale: (f64, f64, f64, f64, f64)) {
         let (a, b, c, d, e) = self;
 

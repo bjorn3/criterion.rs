@@ -7,7 +7,7 @@
 
 #![deny(missing_docs)]
 #![deny(warnings)]
-#![cfg_attr(feature = "cargo-clippy", allow(used_underscore_binding, just_underscores_and_digits))]
+#![allow(clippy::used_underscore_binding, clippy::just_underscores_and_digits)]
 
 extern crate cast;
 extern crate num_cpus;
@@ -31,7 +31,6 @@ pub mod univariate;
 
 mod float;
 
-use std::mem;
 use std::ops::Deref;
 
 use float::Float;
@@ -91,7 +90,7 @@ impl<A> Deref for Distribution<A> {
     fn deref(&self) -> &Sample<A> {
         let slice: &[_] = &self.0;
 
-        unsafe { mem::transmute(slice) }
+        unsafe { &*(slice as *const [A] as *const Sample<A>) }
     }
 }
 

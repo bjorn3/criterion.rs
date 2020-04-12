@@ -25,7 +25,7 @@ impl<A> Sample<A> {
     ///
     /// [rust-lang/rust#22257]: https://github.com/rust-lang/rust/issues/22257
     pub fn as_slice(&self) -> &[A] {
-        unsafe { mem::transmute(self) }
+        unsafe { &*(self as *const Sample<A> as *const [A]) }
     }
 }
 
@@ -42,7 +42,7 @@ where
     pub fn new(slice: &[A]) -> &Sample<A> {
         assert!(slice.len() > 1 && slice.iter().all(|x| !x.is_nan()));
 
-        unsafe { mem::transmute(slice) }
+        unsafe { &*(slice as *const [A] as *const Sample<A>) }
     }
 
     /// Returns the biggest element in the sample
@@ -86,6 +86,7 @@ where
             .map(|&x| (x - median).abs())
             .collect::<Vec<_>>();
 
+        #[allow(clippy::transmute_ptr_to_ptr)]
         let abs_devs: &Sample<A> = unsafe { mem::transmute(&*abs_devs) };
 
         abs_devs.percentiles().median() * A::cast(1.4826)

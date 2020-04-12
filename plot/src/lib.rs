@@ -389,12 +389,11 @@
 //! ```
 
 #![deny(missing_docs)]
-#![deny(warnings)]
 // This lint has lots of false positives ATM, see
 // https://github.com/Manishearth/rust-clippy/issues/761
-#![cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
+#![allow(clippy::new_without_default)]
 // False positives with images
-#![cfg_attr(feature = "cargo-clippy", allow(doc_markdown))]
+#![allow(clippy::doc_markdown)]
 
 extern crate byteorder;
 extern crate cast;
@@ -793,10 +792,10 @@ pub enum Axis {
 }
 
 impl Axis {
-    fn next(&self) -> Option<Axis> {
+    fn next(self) -> Option<Axis> {
         use Axis::*;
 
-        match *self {
+        match self {
             BottomX => Some(LeftY),
             LeftY => Some(RightY),
             RightY => Some(TopX),
@@ -835,10 +834,10 @@ pub enum Grid {
 }
 
 impl Grid {
-    fn next(&self) -> Option<Grid> {
+    fn next(self) -> Option<Grid> {
         use Grid::*;
 
-        match *self {
+        match self {
             Major => Some(Minor),
             Minor => None,
         }
@@ -936,7 +935,7 @@ impl Plot {
         S: Script,
     {
         Plot {
-            data: data,
+            data,
             script: script.script(),
         }
     }

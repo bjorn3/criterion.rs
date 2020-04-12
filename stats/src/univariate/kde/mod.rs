@@ -34,7 +34,7 @@ where
         Kde {
             bandwidth: bw.estimate(sample),
             kernel: k,
-            sample: sample,
+            sample,
         }
     }
 
