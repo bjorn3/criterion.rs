@@ -10,6 +10,7 @@ use program::CommandFactory;
 use report::{BenchmarkId, ReportContext};
 
 /// Struct containing all of the configuration options for a benchmark.
+#[derive(Debug)]
 pub struct BenchmarkConfig {
     pub confidence_level: f64,
     pub measurement_time: Duration,
@@ -360,48 +361,39 @@ impl BenchmarkDefinition for Benchmark {
             plot_config: self.config.plot_config.clone(),
         };
 
-        let config = self.config.to_complete(&c.config);
-        let num_routines = self.routines.len();
+        let config = BenchmarkConfig {
+            confidence_level: 0.5,
+            measurement_time: Duration::from_nanos(1),
+            noise_threshold: 0.01,
+            nresamples: 1,
+            sample_size: 2,
+            significance_level: 0.05,
+            warm_up_time: Duration::from_millis(0),
+        };
 
-        let mut all_ids = vec![];
-        let mut any_matched = false;
+        let id = BenchmarkId::new(
+            group_id.to_owned(),
+            None,
+            None,
+            None,
+        );
 
-        for routine in self.routines {
-            let function_id = if num_routines == 1 && group_id == routine.id {
-                None
-            } else {
-                Some(routine.id)
-            };
+        let (iters, times, _raw_metrics) = Function::new(move |b, _| ())
+            .sample(&id, &config, c, &report_context, &None::<()>);
 
-            let id = BenchmarkId::new(
-                group_id.to_owned(),
-                function_id,
-                None,
-                self.throughput.clone(),
-            );
-
-            if c.filter_matches(id.id()) {
-                any_matched = true;
-                analysis::common(
-                    &id,
-                    &mut *routine.f.borrow_mut(),
-                    &config,
-                    c,
-                    &report_context,
-                    &(),
-                    self.throughput.clone(),
-                );
-            }
-
-            all_ids.push(id);
-        }
-
-        if all_ids.len() > 1 && any_matched {
-            c.report.summarize(&report_context, &all_ids);
-        }
-        if any_matched {
-            println!();
-        }
+        let data = stats::bivariate::Data::new(
+            &[
+                1.0,
+                2.0,
+            ],
+            &[
+                1.0,
+                2.0,
+            ],
+        );
+        data.bootstrap(1, |d| {
+            (0,)
+        });
     }
 }
 impl<T> ParameterizedBenchmark<T>

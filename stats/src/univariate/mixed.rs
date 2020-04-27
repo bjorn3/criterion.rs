@@ -24,6 +24,7 @@ where
     T::Distributions: Send,
     T::Builder: Send,
 {
+    panic!();
     let ncpus = num_cpus::get();
     let n_a = a.as_slice().len();
     let n_b = b.as_slice().len();
@@ -54,6 +55,7 @@ where
                             let a: &Sample<A> = mem::transmute(&resample[..n_a]);
                             let b: &Sample<A> = mem::transmute(&resample[n_a..]);
 
+                            panic!();
                             sub_distributions.push(statistic(a, b))
                         }
                         sub_distributions

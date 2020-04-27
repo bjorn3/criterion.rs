@@ -36,47 +36,13 @@ pub trait Routine<T> {
         Box<[f64]>,
         Option<BTreeMap<EventName, Box<[u64]>>>,
     ) {
-        let wu = config.warm_up_time;
-        let m_ns = config.measurement_time.to_nanos();
-
-        criterion
-            .report
-            .warmup(id, report_context, wu.to_nanos() as f64);
-
-        let mut m = self.start(parameter);
-
-        let (wu_elapsed, wu_iters) = self.warm_up(&mut m, wu, parameter);
-
-        // Initial guess for the mean execution time
-        let met = wu_elapsed as f64 / wu_iters as f64;
-
-        let n = config.sample_size as u64;
-        // Solve: [d + 2*d + 3*d + ... + n*d] * met = m_ns
-        let total_runs = n * (n + 1) / 2;
-        let d = (m_ns as f64 / met / total_runs as f64).ceil() as u64;
-
-        let m_iters = (1..(n + 1) as u64).map(|a| a * d).collect::<Vec<u64>>();
-
-        let m_ns = total_runs as f64 * d as f64 * met;
-        criterion
-            .report
-            .measurement_start(id, report_context, n, m_ns, m_iters.iter().sum());
-
-        let (m_elapsed, m_metrics) = self.bench(&mut m, &m_iters, parameter);
-
-        let m_iters_f: Vec<f64> = m_iters.iter().map(|&x| x as f64).collect();
+        let m_iters_f = vec![];
+        let m_elapsed = vec![];
 
         (
             m_iters_f.into_boxed_slice(),
             m_elapsed.into_boxed_slice(),
-            m_metrics
-                .into_iter()
-                .map(|m| {
-                    m.into_iter()
-                        .map(|(n, v)| (n, v.into_boxed_slice()))
-                        .collect()
-                })
-                .next(),
+            None,
         )
     }
 }

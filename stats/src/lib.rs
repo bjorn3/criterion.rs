@@ -5,8 +5,6 @@
 //! **WARNING** This library is criterion's implementation detail and there no plans to stabilize
 //! it. In other words, the API may break at any time without notice.
 
-#![deny(missing_docs)]
-#![deny(warnings)]
 #![cfg_attr(feature = "cargo-clippy", allow(used_underscore_binding, just_underscores_and_digits))]
 
 extern crate cast;

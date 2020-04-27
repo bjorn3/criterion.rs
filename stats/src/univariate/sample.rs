@@ -15,6 +15,7 @@ use univariate::resamples::Resamples;
 ///
 /// - The sample contains at least 2 data points
 /// - The sample contains no `NaN`s
+#[derive(Debug)]
 pub struct Sample<A>([A]);
 
 impl<A> Sample<A> {
@@ -41,6 +42,8 @@ where
     /// Panics if `slice` contains any `NaN` or if `slice` has less than two elements
     pub fn new(slice: &[A]) -> &Sample<A> {
         assert!(slice.len() > 1 && slice.iter().all(|x| !x.is_nan()));
+
+        println!("{:p}", slice);
 
         unsafe { mem::transmute(slice) }
     }
@@ -184,6 +187,7 @@ where
     /// - Time: `O(length)`
     pub fn t(&self, other: &Sample<A>) -> A {
         let (x_bar, y_bar) = (self.mean(), other.mean());
+        dbg!((x_bar, y_bar));
         let (s2_x, s2_y) = (self.var(Some(x_bar)), other.var(Some(y_bar)));
         let n_x = A::cast(self.as_slice().len());
         let n_y = A::cast(other.as_slice().len());
@@ -208,6 +212,9 @@ where
             .iter()
             .map(|&x| (x - mean).powi(2))
             .fold(A::cast(0), Add::add);
+
+        println!("{:p} {:p}", self, slice);
+        println!("{:?}", slice.len());
 
         sum / A::cast(slice.len() - 1)
     }
