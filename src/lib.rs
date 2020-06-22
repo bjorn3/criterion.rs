@@ -350,11 +350,9 @@ mod report {
 mod routine {
     use benchmark::BenchmarkConfig;
     use metrics::{measure_fn, EventName};
-    use program::Program;
     use report::{BenchmarkId, ReportContext};
     use std::collections::BTreeMap;
     use std::marker::PhantomData;
-    use std::time::{Duration, Instant};
     use {Bencher, Criterion, DurationExt};
     pub trait Routine<T> {
         fn sample(
@@ -396,10 +394,7 @@ mod routine {
             }
         }
     }
-    impl<F, T> Routine<T> for Function<F, T>
-    where
-        F: FnMut(&mut Bencher, &T),
-    {}
+    impl<F, T> Routine<T> for Function<F, T> where F: FnMut(&mut Bencher, &T) {}
 }
 #[cfg(feature = "html_reports")]
 mod kde {
@@ -429,15 +424,7 @@ mod kde {
 #[cfg(feature = "html_reports")]
 mod plot {
     use criterion_plot::prelude::*;
-    use estimate::{Distributions, Estimates};
-    use report::BenchmarkId;
-    use stats::bivariate::regression::Slope;
-    use stats::bivariate::Data;
-    use stats::univariate::outliers::tukey::LabeledSample;
-    use stats::univariate::Sample;
-    use stats::Distribution;
     use std::path::Path;
-    use std::process::Child;
     pub mod both {
         use super::{DARK_BLUE, DARK_RED, DEFAULT_FONT, KDE_POINTS, LINEWIDTH, SIZE};
         use criterion_plot::prelude::*;
@@ -448,19 +435,6 @@ mod plot {
         use stats::univariate::Sample;
         use std::path::Path;
         use std::process::Child;
-        #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
-        pub(crate) fn regression<P: AsRef<Path>>(
-            base_data: Data<f64, f64>,
-            base_estimates: &Estimates,
-            data: Data<f64, f64>,
-            estimates: &Estimates,
-            id: &BenchmarkId,
-            path: P,
-            size: Option<Size>,
-            thumbnail_mode: bool,
-        ) -> Child {
-            unimplemented!()
-        }
         pub fn pdfs<P: AsRef<Path>>(
             base_avg_times: &Sample<f64>,
             avg_times: &Sample<f64>,
