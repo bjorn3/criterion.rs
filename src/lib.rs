@@ -1,4 +1,3 @@
-extern crate clap;
 #[cfg(feature = "html_reports")]
 extern crate criterion_plot;
 extern crate criterion_stats as stats;
@@ -6,10 +5,7 @@ extern crate failure;
 #[cfg(feature = "html_reports")]
 extern crate handlebars;
 extern crate itertools;
-extern crate itertools_num;
 extern crate serde;
-extern crate serde_json;
-extern crate simplelog;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -18,14 +14,6 @@ extern crate failure_derive;
 extern crate serde_derive;
 #[macro_use]
 mod macros_private {
-    macro_rules! log_if_err {
-        ( $ x : expr ) => {
-            let closure = || {
-                try_else_return!($x);
-            };
-            closure();
-        };
-    }
     macro_rules! try_else_return {
         ( $ x : expr ) => {
             try_else_return!($x, || {});
@@ -45,17 +33,10 @@ mod macros_private {
 #[macro_use]
 mod analysis {
     use benchmark::BenchmarkConfig;
-    use estimate::{Distributions, Estimates, Statistic};
     use report::{BenchmarkId, ReportContext};
     use routine::Routine;
-    use stats::bivariate::regression::Slope;
     use stats::bivariate::Data;
-    use stats::univariate::outliers::tukey::{self, LabeledSample};
-    use stats::univariate::Sample;
     use stats::{Distribution, Tails};
-    use std::collections::BTreeMap;
-    use std::path::Path;
-    use {format, fs};
     use {ConfidenceInterval, Criterion, Estimate, Throughput};
     macro_rules! elapsed {
         ( $ msg : expr , $ block : expr ) => {{
@@ -81,21 +62,13 @@ mod analysis {
     ) {
         unimplemented!()
     }
-    pub(super) fn regression(
-        data: Data<f64, f64>,
-        config: &BenchmarkConfig,
-    ) -> (Distribution<f64>, Estimate) {
-        unimplemented!()
-    }
 }
 mod benchmark {
     use analysis;
-    use program::CommandFactory;
     use report::{BenchmarkId, ReportContext};
     use routine::{Function, Routine};
     use std::cell::RefCell;
     use std::fmt::Debug;
-    use std::process::Command;
     use std::time::Duration;
     use {Bencher, Criterion, DurationExt, PlotConfiguration, Throughput};
     #[derive(Debug)]
@@ -132,21 +105,7 @@ mod benchmark {
             }
         }
     }
-    impl PartialBenchmarkConfig {
-        fn to_complete(&self, defaults: &BenchmarkConfig) -> BenchmarkConfig {
-            BenchmarkConfig {
-                confidence_level: self.confidence_level.unwrap_or(defaults.confidence_level),
-                measurement_time: self.measurement_time.unwrap_or(defaults.measurement_time),
-                noise_threshold: self.noise_threshold.unwrap_or(defaults.noise_threshold),
-                nresamples: self.nresamples.unwrap_or(defaults.nresamples),
-                sample_size: self.sample_size.unwrap_or(defaults.sample_size),
-                significance_level: self
-                    .significance_level
-                    .unwrap_or(defaults.significance_level),
-                warm_up_time: self.warm_up_time.unwrap_or(defaults.warm_up_time),
-            }
-        }
-    }
+    impl PartialBenchmarkConfig {}
     pub struct NamedRoutine<T> {
         pub id: String,
         pub f: Box<RefCell<Routine<T>>>,
@@ -165,7 +124,6 @@ mod benchmark {
     pub trait BenchmarkDefinition: Sized {
         fn run(self, group_id: &str, c: &Criterion);
     }
-    macro_rules ! benchmark_config { ( $ type : tt ) => { # [ doc = " Changes the size of the sample for this benchmark" ] # [ doc = "" ] # [ doc = " A bigger sample should yield more accurate results, if paired with a \"sufficiently\" large" ] # [ doc = " measurement time, on the other hand, it also increases the analysis time" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics if set to zero" ] pub fn sample_size ( mut self , n : usize ) -> Self { assert ! ( n > 0 ) ; self . config . sample_size = Some ( n ) ; self } # [ doc = " Changes the warm up time for this benchmark" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics if the input duration is zero" ] pub fn warm_up_time ( mut self , dur : Duration ) -> Self { assert ! ( dur . to_nanos ( ) > 0 ) ; self . config . warm_up_time = Some ( dur ) ; self } # [ doc = " Changes the measurement time for this benchmark" ] # [ doc = "" ] # [ doc = " With a longer time, the measurement will become more resilient to transitory peak loads" ] # [ doc = " caused by external programs" ] # [ doc = "" ] # [ doc = " **Note**: If the measurement time is too \"low\", Criterion will automatically increase it" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics if the input duration in zero" ] pub fn measurement_time ( mut self , dur : Duration ) -> Self { assert ! ( dur . to_nanos ( ) > 0 ) ; self . config . measurement_time = Some ( dur ) ; self } # [ doc = " Changes the number of resamples for this benchmark" ] # [ doc = "" ] # [ doc = " Number of resamples to use for the" ] # [ doc = " [bootstrap](http://en.wikipedia.org/wiki/Bootstrapping_(statistics)#Case_resampling)" ] # [ doc = "" ] # [ doc = " A larger number of resamples reduces the random sampling errors, which are inherent to the" ] # [ doc = " bootstrap method, but also increases the analysis time" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics if the number of resamples is set to zero" ] pub fn nresamples ( mut self , n : usize ) -> Self { assert ! ( n > 0 ) ; self . config . nresamples = Some ( n ) ; self } # [ doc = " Changes the noise threshold for this benchmark" ] # [ doc = "" ] # [ doc = " This threshold is used to decide if an increase of `X%` in the execution time is considered" ] # [ doc = " significant or should be flagged as noise" ] # [ doc = "" ] # [ doc = " *Note:* A value of `0.02` is equivalent to `2%`" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics is the threshold is set to a negative value" ] pub fn noise_threshold ( mut self , threshold : f64 ) -> Self { assert ! ( threshold >= 0.0 ) ; self . config . noise_threshold = Some ( threshold ) ; self } # [ doc = " Changes the confidence level for this benchmark" ] # [ doc = "" ] # [ doc = " The confidence level is used to calculate the" ] # [ doc = " [confidence intervals](https://en.wikipedia.org/wiki/Confidence_interval) of the estimated" ] # [ doc = " statistics" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics if the confidence level is set to a value outside the `(0, 1)` range" ] pub fn confidence_level ( mut self , cl : f64 ) -> Self { assert ! ( cl > 0.0 && cl < 1.0 ) ; self . config . confidence_level = Some ( cl ) ; self } # [ doc = " Changes the [significance level](https://en.wikipedia.org/wiki/Statistical_significance)" ] # [ doc = " for this benchmark" ] # [ doc = "" ] # [ doc = " The significance level is used for" ] # [ doc = " [hypothesis testing](https://en.wikipedia.org/wiki/Statistical_hypothesis_testing)" ] # [ doc = "" ] # [ doc = " # Panics" ] # [ doc = "" ] # [ doc = " Panics if the significance level is set to a value outside the `(0, 1)` range" ] pub fn significance_level ( mut self , sl : f64 ) -> Self { assert ! ( sl > 0.0 && sl < 1.0 ) ; self . config . significance_level = Some ( sl ) ; self } # [ doc = " Changes the plot configuration for this benchmark." ] pub fn plot_config ( mut self , new_config : PlotConfiguration ) -> Self { self . config . plot_config = new_config ; self } } }
     impl Benchmark {
         pub fn new<S, F>(id: S, f: F) -> Benchmark
         where
@@ -215,64 +173,6 @@ mod benchmark {
             data.bootstrap(1, |d| (0,));
         }
     }
-    impl<T> ParameterizedBenchmark<T> where T: Debug + 'static {}
-    impl<T> BenchmarkDefinition for ParameterizedBenchmark<T>
-    where
-        T: Debug + 'static,
-    {
-        fn run(self, group_id: &str, c: &Criterion) {
-            let report_context = ReportContext {
-                output_directory: c.output_directory.clone(),
-                plotting: c.plotting,
-                plot_config: self.config.plot_config.clone(),
-            };
-            let config = self.config.to_complete(&c.config);
-            let num_parameters = self.values.len();
-            let num_routines = self.routines.len();
-            let mut all_ids = vec![];
-            let mut any_matched = false;
-            for routine in self.routines {
-                for value in &self.values {
-                    let function_id = if num_routines == 1 && group_id == routine.id {
-                        None
-                    } else {
-                        Some(routine.id.clone())
-                    };
-                    let value_str = if num_parameters == 1 {
-                        None
-                    } else {
-                        Some(format!("{:?}", value))
-                    };
-                    let throughput = self.throughput.as_ref().map(|func| func(value));
-                    let id = BenchmarkId::new(
-                        group_id.to_owned(),
-                        function_id,
-                        value_str,
-                        throughput.clone(),
-                    );
-                    if c.filter_matches(id.id()) {
-                        any_matched = true;
-                        analysis::common(
-                            &id,
-                            &mut *routine.f.borrow_mut(),
-                            &config,
-                            c,
-                            &report_context,
-                            value,
-                            throughput,
-                        );
-                    }
-                    all_ids.push(id);
-                }
-            }
-            if all_ids.len() > 1 && any_matched {
-                c.report.summarize(&report_context, &all_ids);
-            }
-            if any_matched {
-                println!();
-            }
-        }
-    }
 }
 mod error {
     use failure::Error;
@@ -287,11 +187,7 @@ mod error {
     }
     pub type Result<T> = ::std::result::Result<T, Error>;
     pub(crate) fn log_error(e: &Error) {
-        error!("error: {}", e.cause());
-        for cause in e.causes() {
-            error!("caused by: {}", cause);
-        }
-        debug!("backtrace: {}", e.backtrace());
+        unimplemented!()
     }
 }
 mod estimate {
@@ -309,13 +205,7 @@ mod estimate {
     }
     impl fmt::Display for Statistic {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            match *self {
-                Statistic::Mean => f.pad("mean"),
-                Statistic::Median => f.pad("median"),
-                Statistic::MedianAbsDev => f.pad("MAD"),
-                Statistic::Slope => f.pad("slope"),
-                Statistic::StdDev => f.pad("SD"),
-            }
+            unimplemented!()
         }
     }
     pub(crate) type Estimates = BTreeMap<Statistic, Estimate>;
@@ -324,113 +214,33 @@ mod estimate {
 mod format {
     use Throughput;
     pub fn change(pct: f64, signed: bool) -> String {
-        if signed {
-            format!("{:>+6}%", signed_short(pct * 1e2))
-        } else {
-            format!("{:>6}%", short(pct * 1e2))
-        }
+        unimplemented!()
     }
     fn short(n: f64) -> String {
-        if n < 10.0 {
-            format!("{:.4}", n)
-        } else if n < 100.0 {
-            format!("{:.3}", n)
-        } else if n < 1000.0 {
-            format!("{:.2}", n)
-        } else if n < 10000.0 {
-            format!("{:.1}", n)
-        } else {
-            format!("{}", n)
-        }
+        unimplemented!()
     }
     fn signed_short(n: f64) -> String {
-        let n_abs = n.abs();
-        if n_abs < 10.0 {
-            format!("{:+.4}", n)
-        } else if n_abs < 100.0 {
-            format!("{:+.3}", n)
-        } else if n_abs < 1000.0 {
-            format!("{:+.2}", n)
-        } else {
-            format!("{:+}", n)
-        }
+        unimplemented!()
     }
     pub fn time(ns: f64) -> String {
-        if ns < 1.0 {
-            format!("{:>6} ps", short(ns * 1e3))
-        } else if ns < 10f64.powi(3) {
-            format!("{:>6} ns", short(ns))
-        } else if ns < 10f64.powi(6) {
-            format!("{:>6} us", short(ns / 1e3))
-        } else if ns < 10f64.powi(9) {
-            format!("{:>6} ms", short(ns / 1e6))
-        } else {
-            format!("{:>6} s", short(ns / 1e9))
-        }
+        unimplemented!()
     }
     pub fn throughput(throughput: &Throughput, ns: f64) -> String {
-        match *throughput {
-            Throughput::Bytes(bytes) => bytes_per_second(f64::from(bytes) * (1e9 / ns)),
-            Throughput::Elements(elems) => elements_per_second(f64::from(elems) * (1e9 / ns)),
-        }
+        unimplemented!()
     }
     pub fn bytes_per_second(bytes_per_second: f64) -> String {
-        if bytes_per_second < 1024.0 {
-            format!("{:>6}   B/s", short(bytes_per_second))
-        } else if bytes_per_second < 1024.0 * 1024.0 {
-            format!("{:>6} KiB/s", short(bytes_per_second / 1024.0))
-        } else if bytes_per_second < 1024.0 * 1024.0 * 1024.0 {
-            format!("{:>6} MiB/s", short(bytes_per_second / (1024.0 * 1024.0)))
-        } else {
-            format!(
-                "{:>6} GiB/s",
-                short(bytes_per_second / (1024.0 * 1024.0 * 1024.0))
-            )
-        }
+        unimplemented!()
     }
     pub fn elements_per_second(elements_per_second: f64) -> String {
-        if elements_per_second < 1000.0 {
-            format!("{:>6}  elem/s", short(elements_per_second))
-        } else if elements_per_second < 1000.0 * 1000.0 {
-            format!("{:>6} Kelem/s", short(elements_per_second / 1000.0))
-        } else if elements_per_second < 1000.0 * 1000.0 * 1000.0 {
-            format!(
-                "{:>6} Melem/s",
-                short(elements_per_second / (1000.0 * 1000.0))
-            )
-        } else {
-            format!(
-                "{:>6} Gelem/s",
-                short(elements_per_second / (1000.0 * 1000.0 * 1000.0))
-            )
-        }
+        unimplemented!()
     }
     pub fn iter_count(iterations: u64) -> String {
-        if iterations < 10_000 {
-            format!("{} iterations", iterations)
-        } else if iterations < 1_000_000 {
-            format!("{:.0}k iterations", (iterations as f64) / 1000.0)
-        } else if iterations < 10_000_000 {
-            format!("{:.1}M iterations", (iterations as f64) / (1000.0 * 1000.0))
-        } else if iterations < 1_000_000_000 {
-            format!("{:.0}M iterations", (iterations as f64) / (1000.0 * 1000.0))
-        } else if iterations < 10_000_000_000 {
-            format!(
-                "{:.1}B iterations",
-                (iterations as f64) / (1000.0 * 1000.0 * 1000.0)
-            )
-        } else {
-            format!(
-                "{:.0}B iterations",
-                (iterations as f64) / (1000.0 * 1000.0 * 1000.0)
-            )
-        }
+        unimplemented!()
     }
 }
 mod fs {
     use error::{AccessError, Result};
     use serde::de::DeserializeOwned;
-    use serde::Serialize;
     use std::fs::{self, File};
     use std::io::Read;
     use std::path::Path;
@@ -439,34 +249,19 @@ mod fs {
         A: DeserializeOwned,
         P: AsRef<Path>,
     {
-        let mut f = File::open(path).map_err(|inner| AccessError {
-            inner,
-            path: path.as_ref().to_owned(),
-        })?;
-        let mut string = String::new();
-        let _ = f.read_to_string(&mut string);
-        let result: A = serde_json::from_str(string.as_str())?;
-        Ok(result)
+        unimplemented!()
     }
     pub fn mkdirp<P>(path: &P) -> Result<()>
     where
         P: AsRef<Path>,
     {
-        fs::create_dir_all(path.as_ref())?;
-        Ok(())
+        unimplemented!()
     }
     pub fn save_string<P>(data: &str, path: &P) -> Result<()>
     where
         P: AsRef<Path>,
     {
-        use std::io::Write;
-        File::create(path)
-            .and_then(|mut f| f.write_all(data.as_bytes()))
-            .map_err(|inner| AccessError {
-                inner,
-                path: path.as_ref().to_owned(),
-            })?;
-        Ok(())
+        unimplemented!()
     }
 }
 mod metrics {
@@ -481,7 +276,7 @@ mod metrics {
         where
             F: FnMut() -> T,
         {
-            (function(), None)
+            unimplemented!()
         }
     }
 }
@@ -503,102 +298,14 @@ mod program {
         stdout: BufReader<ChildStdout>,
     }
     impl Program {
-        pub fn spawn(cmd: &mut Command) -> Program {
-            cmd.stderr(Stdio::piped());
-            cmd.stdin(Stdio::piped());
-            cmd.stdout(Stdio::piped());
-            let mut child = match cmd.spawn() {
-                Err(e) => panic!("`{:?}`: {}", cmd, e),
-                Ok(child) => child,
-            };
-            Program {
-                buffer: String::new(),
-                stderr: child.stderr.take().unwrap(),
-                stdin: child.stdin.take().unwrap(),
-                stdout: BufReader::new(child.stdout.take().unwrap()),
-                _child: child,
-            }
-        }
         pub fn send<T>(&mut self, line: T) -> &mut Program
         where
             T: fmt::Display,
         {
-            use std::io::Write;
-            match writeln!(&mut self.stdin, "{}", line) {
-                Err(e) => panic!("`write into child stdin`: {}", e),
-                Ok(_) => self,
-            }
+            unimplemented!()
         }
         pub fn recv(&mut self) -> &str {
-            use std::io::{BufRead, Read};
-            self.buffer.clear();
-            match self.stdout.read_line(&mut self.buffer) {
-                Err(e) => {
-                    self.buffer.clear();
-                    match self.stderr.read_to_string(&mut self.buffer) {
-                        Err(e) => {
-                            panic!("`read from child stderr`: {}", e);
-                        }
-                        Ok(_) => {
-                            println!("stderr:\n{}", self.buffer);
-                        }
-                    }
-                    panic!("`read from child stdout`: {}", e);
-                }
-                Ok(_) => &self.buffer,
-            }
-        }
-        fn bench(&mut self, iters: &[u64]) -> Vec<f64> {
-            let mut n = 0;
-            for iters in iters {
-                self.send(iters);
-                n += 1;
-            }
-            (0..n)
-                .map(|_| {
-                    let msg = self.recv();
-                    let msg = msg.trim();
-                    let elapsed: u64 = msg.parse().expect("Couldn't parse program output");
-                    elapsed as f64
-                })
-                .collect()
-        }
-        fn warm_up(&mut self, how_long_ns: Duration) -> (u64, u64) {
-            let mut iters = 1;
-            let mut total_iters = 0;
-            let start = Instant::now();
-            loop {
-                self.send(iters).recv();
-                total_iters += iters;
-                let elapsed = start.elapsed();
-                if elapsed > how_long_ns {
-                    return (elapsed.to_nanos(), total_iters);
-                }
-                iters *= 2;
-            }
-        }
-    }
-    impl Routine<()> for Command {
-        fn start(&mut self, _: &()) -> Option<Program> {
-            Some(Program::spawn(self))
-        }
-        fn bench(
-            &mut self,
-            program: &mut Option<Program>,
-            iters: &[u64],
-            _: &(),
-        ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
-            let program = program.as_mut().unwrap();
-            (program.bench(iters), None)
-        }
-        fn warm_up(
-            &mut self,
-            program: &mut Option<Program>,
-            how_long_ns: Duration,
-            _: &(),
-        ) -> (u64, u64) {
-            let program = program.as_mut().unwrap();
-            program.warm_up(how_long_ns)
+            unimplemented!()
         }
     }
     pub struct CommandFactory<F, T>
@@ -607,34 +314,6 @@ mod program {
     {
         f: F,
         _phantom: PhantomData<T>,
-    }
-    impl<F, T> CommandFactory<F, T> where F: FnMut(&T) -> Command + 'static {}
-    impl<F, T> Routine<T> for CommandFactory<F, T>
-    where
-        F: FnMut(&T) -> Command + 'static,
-    {
-        fn start(&mut self, parameter: &T) -> Option<Program> {
-            let mut command = (self.f)(parameter);
-            Some(Program::spawn(&mut command))
-        }
-        fn bench(
-            &mut self,
-            program: &mut Option<Program>,
-            iters: &[u64],
-            _: &T,
-        ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
-            let program = program.as_mut().unwrap();
-            (program.bench(iters), None)
-        }
-        fn warm_up(
-            &mut self,
-            program: &mut Option<Program>,
-            how_long_ns: Duration,
-            _: &T,
-        ) -> (u64, u64) {
-            let program = program.as_mut().unwrap();
-            program.warm_up(how_long_ns)
-        }
     }
 }
 mod report {
@@ -719,32 +398,18 @@ mod report {
             }
         }
         pub fn id(&self) -> &str {
-            &self.full_id
+            unimplemented!()
         }
         pub fn as_number(&self) -> Option<f64> {
-            match self.throughput {
-                Some(Throughput::Bytes(n)) | Some(Throughput::Elements(n)) => Some(f64::from(n)),
-                None => self
-                    .value_str
-                    .as_ref()
-                    .and_then(|string| string.parse::<f64>().ok()),
-            }
+            unimplemented!()
         }
         pub fn value_type(&self) -> Option<ValueType> {
-            match self.throughput {
-                Some(Throughput::Bytes(_)) => Some(ValueType::Bytes),
-                Some(Throughput::Elements(_)) => Some(ValueType::Elements),
-                None => self
-                    .value_str
-                    .as_ref()
-                    .and_then(|string| string.parse::<f64>().ok())
-                    .map(|_| ValueType::Value),
-            }
+            unimplemented!()
         }
     }
     impl fmt::Display for BenchmarkId {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            f.write_str(self.id())
+            unimplemented!()
         }
     }
     pub struct ReportContext {
@@ -782,19 +447,13 @@ mod report {
     }
     impl Report for Reports {
         fn benchmark_start(&self, id: &BenchmarkId, context: &ReportContext) {
-            for report in &self.reports {
-                report.benchmark_start(id, context);
-            }
+            unimplemented!()
         }
         fn warmup(&self, id: &BenchmarkId, context: &ReportContext, warmup_ns: f64) {
-            for report in &self.reports {
-                report.warmup(id, context, warmup_ns);
-            }
+            unimplemented!()
         }
         fn analysis(&self, id: &BenchmarkId, context: &ReportContext) {
-            for report in &self.reports {
-                report.analysis(id, context);
-            }
+            unimplemented!()
         }
         fn measurement_start(
             &self,
@@ -804,9 +463,7 @@ mod report {
             estimate_ns: f64,
             iter_count: u64,
         ) {
-            for report in &self.reports {
-                report.measurement_start(id, context, sample_count, estimate_ns, iter_count);
-            }
+            unimplemented!()
         }
         fn measurement_complete(
             &self,
@@ -814,14 +471,10 @@ mod report {
             context: &ReportContext,
             measurements: &MeasurementData,
         ) {
-            for report in &self.reports {
-                report.measurement_complete(id, context, measurements);
-            }
+            unimplemented!()
         }
         fn summarize(&self, context: &ReportContext, all_ids: &[BenchmarkId]) {
-            for report in &self.reports {
-                report.summarize(context, all_ids);
-            }
+            unimplemented!()
         }
     }
     pub(crate) struct CliReport {
@@ -844,102 +497,40 @@ mod report {
             }
         }
         fn text_overwrite(&self) {
-            if self.enable_text_overwrite {
-                print!("\r");
-                for _ in 0..self.last_line_len.get() {
-                    print!(" ");
-                }
-                print!("\r");
-            }
+            unimplemented!()
         }
         #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
         fn print_overwritable(&self, s: String) {
-            if self.enable_text_overwrite {
-                self.last_line_len.set(s.len());
-                print!("{}", s);
-                stdout().flush().unwrap();
-            } else {
-                println!("{}", s);
-            }
+            unimplemented!()
         }
         fn green(&self, s: String) -> String {
-            if self.enable_text_coloring {
-                format!("\x1B[32m{}\x1B[39m", s)
-            } else {
-                s
-            }
+            unimplemented!()
         }
         fn yellow(&self, s: String) -> String {
-            if self.enable_text_coloring {
-                format!("\x1B[33m{}\x1B[39m", s)
-            } else {
-                s
-            }
+            unimplemented!()
         }
         fn red(&self, s: String) -> String {
-            if self.enable_text_coloring {
-                format!("\x1B[31m{}\x1B[39m", s)
-            } else {
-                s
-            }
+            unimplemented!()
         }
         fn bold(&self, s: String) -> String {
-            if self.enable_text_coloring {
-                format!("\x1B[1m{}\x1B[22m", s)
-            } else {
-                s
-            }
+            unimplemented!()
         }
         fn faint(&self, s: String) -> String {
-            if self.enable_text_coloring {
-                format!("\x1B[2m{}\x1B[22m", s)
-            } else {
-                s
-            }
+            unimplemented!()
         }
         pub fn outliers(&self, sample: &LabeledSample<f64>) {
-            let (los, lom, _, him, his) = sample.count();
-            let noutliers = los + lom + him + his;
-            let sample_size = sample.as_slice().len();
-            if noutliers == 0 {
-                return;
-            }
-            let percent = |n: usize| 100. * n as f64 / sample_size as f64;
-            println!(
-                "{}",
-                self.yellow(format!(
-                    "Found {} outliers among {} measurements ({:.2}%)",
-                    noutliers,
-                    sample_size,
-                    percent(noutliers)
-                ))
-            );
-            let print = |n, label| {
-                if n != 0 {
-                    println!("  {} ({:.2}%) {}", n, percent(n), label);
-                }
-            };
-            print(los, "low severe");
-            print(lom, "low mild");
-            print(him, "high mild");
-            print(his, "high severe");
+            unimplemented!()
         }
     }
     impl Report for CliReport {
         fn benchmark_start(&self, id: &BenchmarkId, _: &ReportContext) {
-            self.print_overwritable(format!("Benchmarking {}", id));
+            unimplemented!()
         }
         fn warmup(&self, id: &BenchmarkId, _: &ReportContext, warmup_ns: f64) {
-            self.text_overwrite();
-            self.print_overwritable(format!(
-                "Benchmarking {}: Warming up for {}",
-                id,
-                format::time(warmup_ns)
-            ));
+            unimplemented!()
         }
         fn analysis(&self, id: &BenchmarkId, _: &ReportContext) {
-            self.text_overwrite();
-            self.print_overwritable(format!("Benchmarking {}: Analyzing", id));
+            unimplemented!()
         }
         fn measurement_start(
             &self,
@@ -949,19 +540,7 @@ mod report {
             estimate_ns: f64,
             iter_count: u64,
         ) {
-            self.text_overwrite();
-            let iter_string = if self.verbose {
-                format!("{} iterations", iter_count)
-            } else {
-                format::iter_count(iter_count)
-            };
-            self.print_overwritable(format!(
-                "Benchmarking {}: Collecting {} samples in estimated {} ({})",
-                id,
-                sample_count,
-                format::time(estimate_ns),
-                iter_string
-            ));
+            unimplemented!()
         }
         fn measurement_complete(
             &self,
@@ -969,126 +548,11 @@ mod report {
             _: &ReportContext,
             meas: &MeasurementData,
         ) {
-            self.text_overwrite();
-            let slope_estimate = meas.absolute_estimates[&Statistic::Slope];
-            {
-                let mut id = id.id().to_owned();
-                if id.len() > 23 {
-                    if id.len() > 80 {
-                        id.truncate(77);
-                        id.push_str("...");
-                    }
-                    println!("{}", self.green(id.clone()));
-                    id.clear();
-                }
-                let id_len = id.len();
-                println!(
-                    "{}{}time:   [{} {} {}]",
-                    self.green(id),
-                    " ".repeat(24 - id_len),
-                    self.faint(format::time(slope_estimate.confidence_interval.lower_bound)),
-                    self.bold(format::time(slope_estimate.point_estimate)),
-                    self.faint(format::time(slope_estimate.confidence_interval.upper_bound))
-                );
-            }
-            if let Some(ref throughput) = meas.throughput {
-                println!(
-                    "{}thrpt:  [{} {} {}]",
-                    " ".repeat(24),
-                    self.faint(format::throughput(
-                        throughput,
-                        slope_estimate.confidence_interval.upper_bound
-                    )),
-                    self.bold(format::throughput(
-                        throughput,
-                        slope_estimate.point_estimate
-                    )),
-                    self.faint(format::throughput(
-                        throughput,
-                        slope_estimate.confidence_interval.lower_bound
-                    )),
-                )
-            }
-            if let Some(ref comp) = meas.comparison {
-                let different_mean = comp.p_value < comp.significance_threshold;
-                let mean_est = comp.relative_estimates[&Statistic::Mean];
-                let point_estimate = mean_est.point_estimate;
-                let mut point_estimate_str = format::change(point_estimate, true);
-                let explanation_str: String;
-                if !different_mean {
-                    explanation_str = "No change in performance detected.".to_owned();
-                } else {
-                    let comparison = compare_to_threshold(&mean_est, comp.noise_threshold);
-                    match comparison {
-                        ComparisonResult::Improved => {
-                            point_estimate_str = self.green(self.bold(point_estimate_str));
-                            explanation_str =
-                                format!("Performance has {}.", self.green("improved".to_owned()));
-                        }
-                        ComparisonResult::Regressed => {
-                            point_estimate_str = self.red(self.bold(point_estimate_str));
-                            explanation_str =
-                                format!("Performance has {}.", self.red("regressed".to_owned()));
-                        }
-                        ComparisonResult::NonSignificant => {
-                            explanation_str = "Change within noise threshold.".to_owned();
-                        }
-                    }
-                }
-                println!(
-                    "{}change: [{} {} {}] (p = {:.2} {} {:.2})",
-                    " ".repeat(24),
-                    self.faint(format::change(
-                        mean_est.confidence_interval.lower_bound,
-                        true
-                    )),
-                    point_estimate_str,
-                    self.faint(format::change(
-                        mean_est.confidence_interval.upper_bound,
-                        true
-                    )),
-                    comp.p_value,
-                    if different_mean { "<" } else { ">" },
-                    comp.significance_threshold
-                );
-                println!("{}{}", " ".repeat(24), explanation_str);
-            }
-            self.outliers(&meas.avg_times);
-            if self.verbose {
-                let data = Data::new(meas.iter_counts.as_slice(), meas.sample_times.as_slice());
-                let slope_estimate = &meas.absolute_estimates[&Statistic::Slope];
-                fn format_short_estimate(estimate: &Estimate) -> String {
-                    format!(
-                        "[{} {}]",
-                        format::time(estimate.confidence_interval.lower_bound),
-                        format::time(estimate.confidence_interval.upper_bound)
-                    )
-                }
-                println!(
-                    "{:<7}{} {:<15}[{:0.7} {:0.7}]",
-                    "slope",
-                    format_short_estimate(slope_estimate),
-                    "R^2",
-                    Slope(slope_estimate.confidence_interval.lower_bound).r_squared(data),
-                    Slope(slope_estimate.confidence_interval.upper_bound).r_squared(data),
-                );
-                println!(
-                    "{:<7}{} {:<15}{}",
-                    "mean",
-                    format_short_estimate(&meas.absolute_estimates[&Statistic::Mean]),
-                    "std. dev.",
-                    format_short_estimate(&meas.absolute_estimates[&Statistic::StdDev]),
-                );
-                println!(
-                    "{:<7}{} {:<15}{}",
-                    "median",
-                    format_short_estimate(&meas.absolute_estimates[&Statistic::Median]),
-                    "med. abs. dev.",
-                    format_short_estimate(&meas.absolute_estimates[&Statistic::MedianAbsDev]),
-                );
-            }
+            unimplemented!()
         }
-        fn summarize(&self, _: &ReportContext, _: &[BenchmarkId]) {}
+        fn summarize(&self, _: &ReportContext, _: &[BenchmarkId]) {
+            unimplemented!()
+        }
     }
     enum ComparisonResult {
         Improved,
@@ -1096,16 +560,7 @@ mod report {
         NonSignificant,
     }
     fn compare_to_threshold(estimate: &Estimate, noise: f64) -> ComparisonResult {
-        let ci = estimate.confidence_interval;
-        let lb = ci.lower_bound;
-        let ub = ci.upper_bound;
-        if lb < -noise && ub < -noise {
-            ComparisonResult::Improved
-        } else if lb > noise && ub > noise {
-            ComparisonResult::Regressed
-        } else {
-            ComparisonResult::NonSignificant
-        }
+        unimplemented!()
     }
 }
 mod routine {
@@ -2309,9 +1764,6 @@ mod plot {
         debug_script(&path, &figure);
         figure.set(Output(path)).draw().unwrap()
     }
-    trait Append<T> {
-        fn append_(self, item: T) -> Self;
-    }
 }
 #[cfg(feature = "html_reports")]
 mod html {
@@ -2822,17 +2274,12 @@ mod html {
 use benchmark::BenchmarkConfig;
 use benchmark::NamedRoutine;
 pub use benchmark::{Benchmark, BenchmarkDefinition, ParameterizedBenchmark};
-use estimate::{Distributions, Estimates, Statistic};
 #[cfg(feature = "html_reports")]
 use html::Html;
 use plotting::Plotting;
 use report::{CliReport, Report, Reports};
-use routine::Function;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::env;
 use std::path::PathBuf;
-use std::process::Command;
 use std::time::{Duration, Instant};
 use std::{fmt, mem};
 fn debug_enabled() -> bool {
@@ -2912,18 +2359,7 @@ impl Default for Criterion {
         }
     }
 }
-impl Criterion {
-    pub fn with_filter<S: Into<String>>(mut self, filter: S) -> Criterion {
-        self.filter = Some(filter.into());
-        self
-    }
-    fn filter_matches(&self, id: &str) -> bool {
-        match self.filter {
-            Some(ref string) => id.contains(string),
-            None => true,
-        }
-    }
-}
+impl Criterion {}
 mod plotting {
     #[derive(Debug, Clone, Copy)]
     pub enum Plotting {
@@ -2961,7 +2397,6 @@ struct Estimate {
     point_estimate: f64,
     standard_error: f64,
 }
-impl Estimate {}
 #[derive(Debug, Clone, Serialize)]
 pub enum Throughput {
     Bytes(u32),
