@@ -291,12 +291,7 @@ mod report {
             value_str: Option<String>,
             throughput: Option<Throughput>,
         ) -> BenchmarkId {
-            let full_id = match (&function_id, &value_str) {
-                (&Some(ref func), &Some(ref val)) => format!("{}/{}/{}", group_id, func, val),
-                (&Some(ref func), &None) => format!("{}/{}", group_id, func),
-                (&None, &Some(ref val)) => format!("{}/{}", group_id, val),
-                (&None, &None) => group_id.clone(),
-            };
+            let full_id = "".to_string();
             BenchmarkId {
                 group_id,
                 function_id,
@@ -590,57 +585,9 @@ mod plot {
             thumbnail_mode: bool,
         ) -> Child {
             let base_mean = base_avg_times.mean();
-            let new_mean = avg_times.mean();
             let (base_xs, base_ys, base_y_mean) =
                 kde::sweep_and_estimate(base_avg_times, KDE_POINTS, None, base_mean);
-            let (xs, ys, y_mean) = kde::sweep_and_estimate(avg_times, KDE_POINTS, None, new_mean);
-            let base_xs_ = Sample::new(&base_xs);
-            let xs_ = Sample::new(&xs);
-            let (x_scale, prefix) = scale_time(base_xs_.max().max(xs_.max()));
-            let zeros = iter::repeat(0);
-            let mut figure = Figure::new();
-            if !thumbnail_mode {
-                unimplemented!()
-            }
-            figure
-                .set(Font(DEFAULT_FONT))
-                .set(size.unwrap_or(SIZE))
-                .configure(Axis::BottomX, |a| unimplemented!())
-                .configure(Axis::LeftY, |a| a.set(Label("Density (a.u.)")))
-                .configure(Axis::RightY, |a| a.hide())
-                .configure(Key, |k| unimplemented!())
-                .plot(
-                    FilledCurve {
-                        x: &*base_xs,
-                        y1: &*base_ys,
-                        y2: zeros.clone(),
-                    },
-                    |c| c.set(DARK_RED).set(Label("Base PDF")).set(Opacity(0.5)),
-                )
-                .plot(
-                    Lines {
-                        x: &[base_mean, base_mean],
-                        y: &[0., base_y_mean],
-                    },
-                    |c| c.set(DARK_RED).set(Label("Base Mean")).set(LINEWIDTH),
-                )
-                .plot(
-                    FilledCurve {
-                        x: &*xs,
-                        y1: &*ys,
-                        y2: zeros,
-                    },
-                    |c| c.set(DARK_BLUE).set(Label("New PDF")).set(Opacity(0.5)),
-                )
-                .plot(
-                    Lines {
-                        x: &[new_mean, new_mean],
-                        y: &[0., y_mean],
-                    },
-                    |c| c.set(DARK_BLUE).set(Label("New Mean")).set(LINEWIDTH),
-                );
-            debug_script(&path, &figure);
-            figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
+            Figure::new().draw().unwrap()
         }
     }
     fn escape_underscores(string: &str) -> String {
@@ -772,18 +719,6 @@ mod html {
     impl Html {
         pub fn new() -> Html {
             let mut handlebars = Handlebars::new();
-            handlebars
-                .register_template_string(
-                    "report",
-                    include_str!("html/benchmark_report.html.handlebars"),
-                )
-                .expect("Unable to parse benchmark report template.");
-            handlebars
-                .register_template_string(
-                    "summary_report",
-                    include_str!("html/summary_report.html.handlebars"),
-                )
-                .expect("Unable to parse summary report template.");
             Html { handlebars }
         }
     }
@@ -857,13 +792,7 @@ mod html {
                         Slope(slope_estimate.point_estimate).r_squared(data)
                     ),
                 },
-                additional_plots: vec![
-                    Plot::new("Slope", "slope.svg"),
-                    Plot::new("Mean", "mean.svg"),
-                    Plot::new("Std. Dev.", "SD.svg"),
-                    Plot::new("Median", "median.svg"),
-                    Plot::new("MAD", "MAD.svg"),
-                ],
+                additional_plots: vec![],
                 comparison: self.comparison(measurements),
             };
             let text = self
@@ -893,69 +822,13 @@ mod html {
             context: &ReportContext,
             measurements: &MeasurementData,
         ) {
-            let data = Data::new(
-                measurements.iter_counts.as_slice(),
-                measurements.sample_times.as_slice(),
-            );
-            let slope_estimate = &measurements.absolute_estimates[&Statistic::Slope];
-            let point = Slope::fit(data);
-            let slope_dist = &measurements.distributions[&Statistic::Slope];
-            let (lb, ub) =
-                slope_dist.confidence_interval(slope_estimate.confidence_interval.confidence_level);
-            let (lb_, ub_) = (Slope(lb), Slope(ub));
             let report_dir = context.output_directory.join(id.to_string()).join("report");
             let mut gnuplots = vec![];
-            gnuplots.push(plot::pdf(
-                data,
-                measurements.avg_times,
-                id,
-                report_dir.join("pdf.svg"),
-                None,
-            ));
-            gnuplots.extend(plot::abs_distributions(
-                &measurements.distributions,
-                &measurements.absolute_estimates,
-                id,
-                &context.output_directory,
-            ));
-            gnuplots.push(plot::regression(
-                data,
-                &point,
-                (lb_, ub_),
-                id,
-                report_dir.join("regression.svg"),
-                None,
-                false,
-            ));
-            gnuplots.push(plot::pdf_small(
-                &*measurements.avg_times,
-                report_dir.join("pdf_small.svg"),
-                Some(THUMBNAIL_SIZE),
-            ));
-            gnuplots.push(plot::regression(
-                data,
-                &point,
-                (lb_, ub_),
-                id,
-                report_dir.join("regression_small.svg"),
-                Some(THUMBNAIL_SIZE),
-                true,
-            ));
             if let Some(ref comp) = measurements.comparison {
                 try_else_return!(fs::mkdirp(&report_dir.join("change")));
                 let base_data = Data::new(&comp.base_iter_counts, &comp.base_sample_times);
                 let both_dir = report_dir.join("both");
                 try_else_return!(fs::mkdirp(&both_dir));
-                gnuplots.push(plot::both::regression(
-                    base_data,
-                    &comp.base_estimates,
-                    data,
-                    &measurements.absolute_estimates,
-                    id,
-                    both_dir.join("regression.svg"),
-                    None,
-                    false,
-                ));
                 gnuplots.push(plot::both::pdfs(
                     Sample::new(&comp.base_avg_times),
                     &*measurements.avg_times,
@@ -963,37 +836,6 @@ mod html {
                     both_dir.join("pdf.svg"),
                     None,
                     false,
-                ));
-                gnuplots.push(plot::t_test(
-                    comp.t_value,
-                    &comp.t_distribution,
-                    id,
-                    &context.output_directory,
-                ));
-                gnuplots.extend(plot::rel_distributions(
-                    &comp.relative_distributions,
-                    &comp.relative_estimates,
-                    id,
-                    &context.output_directory,
-                    comp.noise_threshold,
-                ));
-                gnuplots.push(plot::both::regression(
-                    base_data,
-                    &comp.base_estimates,
-                    data,
-                    &measurements.absolute_estimates,
-                    id,
-                    report_dir.join("relative_regression_small.svg"),
-                    Some(THUMBNAIL_SIZE),
-                    true,
-                ));
-                gnuplots.push(plot::both::pdfs(
-                    Sample::new(&comp.base_avg_times),
-                    &*measurements.avg_times,
-                    id,
-                    report_dir.join("relative_pdf_small.svg"),
-                    Some(THUMBNAIL_SIZE),
-                    true,
                 ));
             }
             wait_on_gnuplot(gnuplots);
@@ -1037,19 +879,6 @@ pub struct Criterion {
 impl Default for Criterion {
     fn default() -> Criterion {
         #[allow(unused_mut, unused_assignments)]
-        let mut plotting = Plotting::NotAvailable;
-        let mut reports: Vec<Box<Report>> = vec![];
-        reports.push(Box::new(CliReport::new(false, false, false)));
-        #[cfg(feature = "html_reports")]
-        {
-            plotting = if criterion_plot::version().is_ok() {
-                unimplemented!()
-            } else {
-                println!("Gnuplot not found, disabling plotting");
-                Plotting::NotAvailable
-            };
-            reports.push(Box::new(Html::new()));
-        }
         let output_directory: PathBuf = [
             env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| String::from("target")),
             String::from("criterion"),
@@ -1066,9 +895,9 @@ impl Default for Criterion {
                 significance_level: 0.05,
                 warm_up_time: Duration::new(3, 0),
             },
-            plotting: plotting,
+            plotting: Plotting::NotAvailable,
             filter: None,
-            report: Box::new(Reports::new(reports)),
+            report: Box::new(Reports::new(vec![])),
             output_directory,
         }
     }
