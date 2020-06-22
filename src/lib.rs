@@ -380,52 +380,6 @@ mod report {
         pub verbose: bool,
         last_line_len: Cell<usize>,
     }
-    impl CliReport {
-        pub fn new(
-            enable_text_overwrite: bool,
-            enable_text_coloring: bool,
-            verbose: bool,
-        ) -> CliReport {
-            CliReport {
-                enable_text_overwrite: enable_text_overwrite,
-                enable_text_coloring: enable_text_coloring,
-                verbose: verbose,
-                last_line_len: Cell::new(0),
-            }
-        }
-    }
-    impl Report for CliReport {
-        fn benchmark_start(&self, id: &BenchmarkId, _: &ReportContext) {
-            unimplemented!()
-        }
-        fn warmup(&self, id: &BenchmarkId, _: &ReportContext, warmup_ns: f64) {
-            unimplemented!()
-        }
-        fn analysis(&self, id: &BenchmarkId, _: &ReportContext) {
-            unimplemented!()
-        }
-        fn measurement_start(
-            &self,
-            id: &BenchmarkId,
-            _: &ReportContext,
-            sample_count: u64,
-            estimate_ns: f64,
-            iter_count: u64,
-        ) {
-            unimplemented!()
-        }
-        fn measurement_complete(
-            &self,
-            id: &BenchmarkId,
-            _: &ReportContext,
-            meas: &MeasurementData,
-        ) {
-            unimplemented!()
-        }
-        fn summarize(&self, _: &ReportContext, _: &[BenchmarkId]) {
-            unimplemented!()
-        }
-    }
 }
 mod routine {
     use benchmark::BenchmarkConfig;
@@ -552,7 +506,6 @@ mod plot {
     use std::path::Path;
     use std::process::Child;
     pub mod both {
-        use super::{debug_script, escape_underscores, scale_time};
         use super::{DARK_BLUE, DARK_RED, DEFAULT_FONT, KDE_POINTS, LINEWIDTH, SIZE};
         use criterion_plot::prelude::*;
         use estimate::Estimates;
@@ -560,7 +513,6 @@ mod plot {
         use report::BenchmarkId;
         use stats::bivariate::Data;
         use stats::univariate::Sample;
-        use std::iter;
         use std::path::Path;
         use std::process::Child;
         #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
@@ -603,54 +555,6 @@ mod plot {
     const DARK_BLUE: Color = Color::Rgb(31, 120, 180);
     const DARK_RED: Color = Color::Rgb(227, 26, 28);
     fn debug_script<P: AsRef<Path>>(path: P, figure: &Figure) {
-        unimplemented!()
-    }
-    pub fn pdf_small<P: AsRef<Path>>(sample: &Sample<f64>, path: P, size: Option<Size>) -> Child {
-        unimplemented!()
-    }
-    pub fn pdf<P: AsRef<Path>>(
-        data: Data<f64, f64>,
-        labeled_sample: LabeledSample<f64>,
-        id: &BenchmarkId,
-        path: P,
-        size: Option<Size>,
-    ) -> Child {
-        unimplemented!()
-    }
-    pub fn regression<P: AsRef<Path>>(
-        data: Data<f64, f64>,
-        point: &Slope<f64>,
-        (lb, ub): (Slope<f64>, Slope<f64>),
-        id: &BenchmarkId,
-        path: P,
-        size: Option<Size>,
-        thumbnail_mode: bool,
-    ) -> Child {
-        unimplemented!()
-    }
-    pub(crate) fn abs_distributions<P: AsRef<Path>>(
-        distributions: &Distributions,
-        estimates: &Estimates,
-        id: &BenchmarkId,
-        output_directory: P,
-    ) -> Vec<Child> {
-        unimplemented!()
-    }
-    pub(crate) fn rel_distributions<P: AsRef<Path>>(
-        distributions: &Distributions,
-        estimates: &Estimates,
-        id: &BenchmarkId,
-        output_directory: P,
-        nt: f64,
-    ) -> Vec<Child> {
-        unimplemented!()
-    }
-    pub fn t_test<P: AsRef<Path>>(
-        t: f64,
-        distribution: &Distribution<f64>,
-        id: &BenchmarkId,
-        output_directory: P,
-    ) -> Child {
         unimplemented!()
     }
 }
@@ -699,11 +603,6 @@ mod html {
         name: String,
         url: String,
     }
-    impl Plot {
-        fn new(name: &str, url: &str) -> Plot {
-            unimplemented!()
-        }
-    }
     #[derive(Serialize)]
     struct Comparison {
         p_value: String,
@@ -715,12 +614,6 @@ mod html {
     }
     pub struct Html {
         handlebars: Handlebars,
-    }
-    impl Html {
-        pub fn new() -> Html {
-            let mut handlebars = Handlebars::new();
-            Html { handlebars }
-        }
     }
     impl Report for Html {
         fn benchmark_start(&self, _: &BenchmarkId, _: &ReportContext) {
@@ -845,8 +738,6 @@ mod html {
 use benchmark::BenchmarkConfig;
 use benchmark::NamedRoutine;
 pub use benchmark::{Benchmark, BenchmarkDefinition, ParameterizedBenchmark};
-#[cfg(feature = "html_reports")]
-use html::Html;
 use plotting::Plotting;
 use report::{CliReport, Report, Reports};
 use std::env;
