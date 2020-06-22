@@ -315,24 +315,12 @@ mod report {
         pub plot_config: PlotConfiguration,
     }
     pub(crate) trait Report {
-        fn benchmark_start(&self, id: &BenchmarkId, context: &ReportContext);
-        fn warmup(&self, id: &BenchmarkId, context: &ReportContext, warmup_ns: f64);
-        fn analysis(&self, id: &BenchmarkId, context: &ReportContext);
-        fn measurement_start(
-            &self,
-            id: &BenchmarkId,
-            context: &ReportContext,
-            sample_count: u64,
-            estimate_ns: f64,
-            iter_count: u64,
-        );
         fn measurement_complete(
             &self,
             id: &BenchmarkId,
             context: &ReportContext,
             measurements: &MeasurementData,
         );
-        fn summarize(&self, context: &ReportContext, all_ids: &[BenchmarkId]);
     }
     pub(crate) struct Reports {
         reports: Vec<Box<Report>>,
@@ -343,34 +331,12 @@ mod report {
         }
     }
     impl Report for Reports {
-        fn benchmark_start(&self, id: &BenchmarkId, context: &ReportContext) {
-            unimplemented!()
-        }
-        fn warmup(&self, id: &BenchmarkId, context: &ReportContext, warmup_ns: f64) {
-            unimplemented!()
-        }
-        fn analysis(&self, id: &BenchmarkId, context: &ReportContext) {
-            unimplemented!()
-        }
-        fn measurement_start(
-            &self,
-            id: &BenchmarkId,
-            context: &ReportContext,
-            sample_count: u64,
-            estimate_ns: f64,
-            iter_count: u64,
-        ) {
-            unimplemented!()
-        }
         fn measurement_complete(
             &self,
             id: &BenchmarkId,
             context: &ReportContext,
             measurements: &MeasurementData,
         ) {
-            unimplemented!()
-        }
-        fn summarize(&self, context: &ReportContext, all_ids: &[BenchmarkId]) {
             unimplemented!()
         }
     }
@@ -391,19 +357,6 @@ mod routine {
     use std::time::{Duration, Instant};
     use {Bencher, Criterion, DurationExt};
     pub trait Routine<T> {
-        fn start(&mut self, parameter: &T) -> Option<Program>;
-        fn bench(
-            &mut self,
-            m: &mut Option<Program>,
-            iters: &[u64],
-            parameter: &T,
-        ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>);
-        fn warm_up(
-            &mut self,
-            m: &mut Option<Program>,
-            how_long: Duration,
-            parameter: &T,
-        ) -> (u64, u64);
         fn sample(
             &mut self,
             id: &BenchmarkId,
@@ -446,27 +399,7 @@ mod routine {
     impl<F, T> Routine<T> for Function<F, T>
     where
         F: FnMut(&mut Bencher, &T),
-    {
-        fn start(&mut self, _: &T) -> Option<Program> {
-            unimplemented!()
-        }
-        fn bench(
-            &mut self,
-            _: &mut Option<Program>,
-            iters: &[u64],
-            parameter: &T,
-        ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
-            unimplemented!()
-        }
-        fn warm_up(
-            &mut self,
-            _: &mut Option<Program>,
-            how_long: Duration,
-            parameter: &T,
-        ) -> (u64, u64) {
-            unimplemented!()
-        }
-    }
+    {}
 }
 #[cfg(feature = "html_reports")]
 mod kde {
@@ -616,18 +549,6 @@ mod html {
         handlebars: Handlebars,
     }
     impl Report for Html {
-        fn benchmark_start(&self, _: &BenchmarkId, _: &ReportContext) {
-            unimplemented!()
-        }
-        fn warmup(&self, _: &BenchmarkId, _: &ReportContext, _: f64) {
-            unimplemented!()
-        }
-        fn analysis(&self, _: &BenchmarkId, _: &ReportContext) {
-            unimplemented!()
-        }
-        fn measurement_start(&self, _: &BenchmarkId, _: &ReportContext, _: u64, _: f64, _: u64) {
-            unimplemented!()
-        }
         fn measurement_complete(
             &self,
             id: &BenchmarkId,
@@ -700,9 +621,6 @@ mod html {
                     .join("report")
                     .join("index.html")
             ));
-        }
-        fn summarize(&self, context: &ReportContext, all_ids: &[BenchmarkId]) {
-            unimplemented!()
         }
     }
     impl Html {
