@@ -4,7 +4,6 @@ extern crate criterion_stats as stats;
 extern crate failure;
 #[cfg(feature = "html_reports")]
 extern crate handlebars;
-extern crate itertools;
 extern crate serde;
 #[macro_use]
 extern crate log;
@@ -174,7 +173,6 @@ mod error {
 mod estimate {
     use stats::Distribution;
     use std::collections::BTreeMap;
-    use std::fmt;
     use Estimate;
     #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd, Deserialize, Serialize, Debug)]
     pub enum Statistic {
@@ -198,7 +196,6 @@ mod format {
 }
 mod fs {
     use error::{AccessError, Result};
-    use serde::de::DeserializeOwned;
     use std::path::Path;
     pub fn mkdirp<P>(path: &P) -> Result<()>
     where
@@ -279,12 +276,6 @@ mod report {
         pub avg: LabeledSample<'a, f64>,
         pub absolute_estimates: Estimates,
         pub distributions: Distributions,
-    }
-    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-    pub enum ValueType {
-        Bytes,
-        Elements,
-        Value,
     }
     #[derive(Clone)]
     pub struct BenchmarkId {
@@ -729,7 +720,6 @@ mod html {
     use stats::bivariate::regression::Slope;
     use stats::bivariate::Data;
     use stats::univariate::Sample;
-    use std::path::{Path, PathBuf};
     use std::process::Child;
     use Estimate;
     const THUMBNAIL_SIZE: Size = Size(450, 300);
@@ -751,11 +741,6 @@ mod html {
         throughput: Option<ConfidenceInterval>,
         additional_plots: Vec<Plot>,
         comparison: Option<Comparison>,
-    }
-    #[derive(Serialize)]
-    struct IndividualBenchmark {
-        name: String,
-        path: String,
     }
     #[derive(Serialize)]
     struct ConfidenceInterval {
@@ -1014,11 +999,6 @@ mod html {
             }
             wait_on_gnuplot(gnuplots);
         }
-    }
-    enum ComparisonResult {
-        Improved,
-        Regressed,
-        NonSignificant,
     }
 }
 use benchmark::BenchmarkConfig;
