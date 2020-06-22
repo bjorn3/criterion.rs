@@ -35,8 +35,6 @@ mod analysis {
     use benchmark::BenchmarkConfig;
     use report::{BenchmarkId, ReportContext};
     use routine::Routine;
-    use stats::bivariate::Data;
-    use stats::{Distribution, Tails};
     use {ConfidenceInterval, Criterion, Estimate, Throughput};
     macro_rules! elapsed {
         ( $ msg : expr , $ block : expr ) => {{
@@ -51,20 +49,8 @@ mod analysis {
             out
         }};
     }
-    pub(crate) fn common<T>(
-        id: &BenchmarkId,
-        routine: &mut Routine<T>,
-        config: &BenchmarkConfig,
-        criterion: &Criterion,
-        report_context: &ReportContext,
-        parameter: &T,
-        throughput: Option<Throughput>,
-    ) {
-        unimplemented!()
-    }
 }
 mod benchmark {
-    use analysis;
     use report::{BenchmarkId, ReportContext};
     use routine::{Function, Routine};
     use std::cell::RefCell;
@@ -105,7 +91,6 @@ mod benchmark {
             }
         }
     }
-    impl PartialBenchmarkConfig {}
     pub struct NamedRoutine<T> {
         pub id: String,
         pub f: Box<RefCell<Routine<T>>>,
@@ -216,33 +201,16 @@ mod format {
     pub fn change(pct: f64, signed: bool) -> String {
         unimplemented!()
     }
-    fn short(n: f64) -> String {
-        unimplemented!()
-    }
-    fn signed_short(n: f64) -> String {
-        unimplemented!()
-    }
     pub fn time(ns: f64) -> String {
         unimplemented!()
     }
     pub fn throughput(throughput: &Throughput, ns: f64) -> String {
         unimplemented!()
     }
-    pub fn bytes_per_second(bytes_per_second: f64) -> String {
-        unimplemented!()
-    }
-    pub fn elements_per_second(elements_per_second: f64) -> String {
-        unimplemented!()
-    }
-    pub fn iter_count(iterations: u64) -> String {
-        unimplemented!()
-    }
 }
 mod fs {
     use error::{AccessError, Result};
     use serde::de::DeserializeOwned;
-    use std::fs::{self, File};
-    use std::io::Read;
     use std::path::Path;
     pub fn load<A, P: ?Sized>(path: &P) -> Result<A>
     where
@@ -281,15 +249,10 @@ mod metrics {
     }
 }
 mod program {
-    use metrics::EventName;
-    use routine::Routine;
-    use std::collections::BTreeMap;
     use std::fmt;
     use std::io::BufReader;
     use std::marker::PhantomData;
     use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
-    use std::time::{Duration, Instant};
-    use DurationExt;
     pub struct Program {
         buffer: String,
         stdin: ChildStdin,
@@ -297,39 +260,16 @@ mod program {
         stderr: ChildStderr,
         stdout: BufReader<ChildStdout>,
     }
-    impl Program {
-        pub fn send<T>(&mut self, line: T) -> &mut Program
-        where
-            T: fmt::Display,
-        {
-            unimplemented!()
-        }
-        pub fn recv(&mut self) -> &str {
-            unimplemented!()
-        }
-    }
-    pub struct CommandFactory<F, T>
-    where
-        F: FnMut(&T) -> Command + 'static,
-    {
-        f: F,
-        _phantom: PhantomData<T>,
-    }
 }
 mod report {
     use estimate::{Distributions, Estimates, Statistic};
-    use format;
     use metrics::EventName;
-    use stats::bivariate::regression::Slope;
-    use stats::bivariate::Data;
     use stats::univariate::outliers::tukey::LabeledSample;
     use stats::univariate::Sample;
     use stats::Distribution;
     use std::cell::Cell;
     use std::collections::BTreeMap;
     use std::fmt;
-    use std::io::stdout;
-    use std::io::Write;
     use std::path::PathBuf;
     use Estimate;
     use {PlotConfiguration, Plotting, Throughput};
@@ -496,31 +436,6 @@ mod report {
                 last_line_len: Cell::new(0),
             }
         }
-        fn text_overwrite(&self) {
-            unimplemented!()
-        }
-        #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
-        fn print_overwritable(&self, s: String) {
-            unimplemented!()
-        }
-        fn green(&self, s: String) -> String {
-            unimplemented!()
-        }
-        fn yellow(&self, s: String) -> String {
-            unimplemented!()
-        }
-        fn red(&self, s: String) -> String {
-            unimplemented!()
-        }
-        fn bold(&self, s: String) -> String {
-            unimplemented!()
-        }
-        fn faint(&self, s: String) -> String {
-            unimplemented!()
-        }
-        pub fn outliers(&self, sample: &LabeledSample<f64>) {
-            unimplemented!()
-        }
     }
     impl Report for CliReport {
         fn benchmark_start(&self, id: &BenchmarkId, _: &ReportContext) {
@@ -558,9 +473,6 @@ mod report {
         Improved,
         Regressed,
         NonSignificant,
-    }
-    fn compare_to_threshold(estimate: &Estimate, noise: f64) -> ComparisonResult {
-        unimplemented!()
     }
 }
 mod routine {
@@ -630,7 +542,7 @@ mod routine {
         F: FnMut(&mut Bencher, &T),
     {
         fn start(&mut self, _: &T) -> Option<Program> {
-            None
+            unimplemented!()
         }
         fn bench(
             &mut self,
@@ -638,42 +550,7 @@ mod routine {
             iters: &[u64],
             parameter: &T,
         ) -> (Vec<f64>, Option<BTreeMap<EventName, Vec<u64>>>) {
-            let mut b = Bencher {
-                iters: 0,
-                elapsed: Duration::from_secs(0),
-            };
-            let mut times = Vec::new();
-            let mut metrics = BTreeMap::new();
-            for &i in iters {
-                b.iters = i;
-                let (time, run_metrics) = measure_fn(|| {
-                    (self.f)(&mut b, parameter);
-                    b.elapsed.to_nanos() as f64
-                });
-                times.push(time);
-                if let Some(run_metrics) = run_metrics {
-                    for (n, v) in run_metrics {
-                        metrics.entry(n).or_insert_with(|| Vec::new()).push(v);
-                    }
-                }
-            }
-            let mut return_recorded_metrics = false;
-            {
-                let mut lengths = metrics.iter().map(|(_, v)| v.len());
-                let first = lengths.next();
-                if let Some(first) = first {
-                    if !lengths.all(|l| l == first) {
-                        panic!("metrics out of sync!");
-                    } else {
-                        return_recorded_metrics = true;
-                    }
-                }
-            }
-            if return_recorded_metrics {
-                (times, Some(metrics))
-            } else {
-                (times, None)
-            }
+            unimplemented!()
         }
         fn warm_up(
             &mut self,
@@ -681,22 +558,7 @@ mod routine {
             how_long: Duration,
             parameter: &T,
         ) -> (u64, u64) {
-            let f = &mut self.f;
-            let mut b = Bencher {
-                iters: 1,
-                elapsed: Duration::from_secs(0),
-            };
-            let mut total_iters = 0;
-            let start = Instant::now();
-            loop {
-                (*f)(&mut b, parameter);
-                total_iters += b.iters;
-                let elapsed = start.elapsed();
-                if elapsed > how_long {
-                    return (elapsed.to_nanos(), total_iters);
-                }
-                b.iters *= 2;
-            }
+            unimplemented!()
         }
     }
 }
@@ -710,8 +572,7 @@ mod kde {
         npoints: usize,
         range: Option<(f64, f64)>,
     ) -> (Box<[f64]>, Box<[f64]>) {
-        let (xs, ys, _) = sweep_and_estimate(sample, npoints, range, sample.as_slice()[0]);
-        (xs, ys)
+        unimplemented!()
     }
     pub fn sweep_and_estimate(
         sample: &Sample<f64>,
@@ -772,103 +633,7 @@ mod plot {
             size: Option<Size>,
             thumbnail_mode: bool,
         ) -> Child {
-            let max_iters = base_data.x().max().max(data.x().max());
-            let max_elapsed = base_data.y().max().max(data.y().max());
-            let (y_scale, prefix) = scale_time(max_elapsed);
-            let exponent = (max_iters.log10() / 3.).floor() as i32 * 3;
-            let x_scale = 10f64.powi(-exponent);
-            let x_label = if exponent == 0 {
-                "Iterations".to_owned()
-            } else {
-                format!("Iterations (x 10^{})", exponent)
-            };
-            let Estimate {
-                confidence_interval:
-                    ConfidenceInterval {
-                        lower_bound: base_lb,
-                        upper_bound: base_ub,
-                        ..
-                    },
-                point_estimate: base_point,
-                ..
-            } = base_estimates[&Slope];
-            let Estimate {
-                confidence_interval:
-                    ConfidenceInterval {
-                        lower_bound: lb,
-                        upper_bound: ub,
-                        ..
-                    },
-                point_estimate: point,
-                ..
-            } = estimates[&Slope];
-            let mut figure = Figure::new();
-            if !thumbnail_mode {
-                figure.set(Title(escape_underscores(id.id())));
-            }
-            figure
-                .set(Font(DEFAULT_FONT))
-                .set(size.unwrap_or(SIZE))
-                .configure(Axis::BottomX, |a| {
-                    a.configure(Grid::Major, |g| g.show())
-                        .set(Label(x_label))
-                        .set(ScaleFactor(x_scale))
-                })
-                .configure(Axis::LeftY, |a| {
-                    a.configure(Grid::Major, |g| g.show())
-                        .set(Label(format!("Total time ({}s)", prefix)))
-                        .set(ScaleFactor(y_scale))
-                })
-                .configure(Key, |k| {
-                    if thumbnail_mode {
-                        k.hide();
-                    }
-                    k.set(Justification::Left)
-                        .set(Order::SampleText)
-                        .set(Position::Inside(Vertical::Top, Horizontal::Left))
-                })
-                .plot(
-                    FilledCurve {
-                        x: &[0., max_iters],
-                        y1: &[0., base_lb],
-                        y2: &[0., base_ub],
-                    },
-                    |c| c.set(DARK_RED).set(Opacity(0.25)),
-                )
-                .plot(
-                    FilledCurve {
-                        x: &[0., max_iters],
-                        y1: &[0., lb],
-                        y2: &[0., ub],
-                    },
-                    |c| c.set(DARK_BLUE).set(Opacity(0.25)),
-                )
-                .plot(
-                    Lines {
-                        x: &[0., max_iters],
-                        y: &[0., base_point],
-                    },
-                    |c| {
-                        c.set(DARK_RED)
-                            .set(LINEWIDTH)
-                            .set(Label("Base sample"))
-                            .set(LineType::Solid)
-                    },
-                )
-                .plot(
-                    Lines {
-                        x: &[0., max_iters],
-                        y: &[0., point],
-                    },
-                    |c| {
-                        c.set(DARK_BLUE)
-                            .set(LINEWIDTH)
-                            .set(Label("New sample"))
-                            .set(LineType::Solid)
-                    },
-                );
-            debug_script(&path, &figure);
-            figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
+            unimplemented!()
         }
         pub fn pdfs<P: AsRef<Path>>(
             base_avg_times: &Sample<f64>,
@@ -889,25 +654,15 @@ mod plot {
             let zeros = iter::repeat(0);
             let mut figure = Figure::new();
             if !thumbnail_mode {
-                figure.set(Title(escape_underscores(id.id())));
+                unimplemented!()
             }
             figure
                 .set(Font(DEFAULT_FONT))
                 .set(size.unwrap_or(SIZE))
-                .configure(Axis::BottomX, |a| {
-                    a.set(Label(format!("Average time ({}s)", prefix)))
-                        .set(ScaleFactor(x_scale))
-                })
+                .configure(Axis::BottomX, |a| unimplemented!())
                 .configure(Axis::LeftY, |a| a.set(Label("Density (a.u.)")))
                 .configure(Axis::RightY, |a| a.hide())
-                .configure(Key, |k| {
-                    if thumbnail_mode {
-                        k.hide();
-                    }
-                    k.set(Justification::Left)
-                        .set(Order::SampleText)
-                        .set(Position::Outside(Vertical::Top, Horizontal::Right))
-                })
+                .configure(Key, |k| unimplemented!())
                 .plot(
                     FilledCurve {
                         x: &*base_xs,
@@ -967,10 +722,7 @@ mod plot {
         ];
         impl AxisScale {
             fn to_gnuplot(&self) -> Scale {
-                match *self {
-                    AxisScale::Linear => Scale::Linear,
-                    AxisScale::Logarithmic => Scale::Logarithmic,
-                }
+                unimplemented!()
             }
         }
         #[cfg_attr(feature = "cargo-clippy", allow(explicit_counter_loop))]
@@ -981,74 +733,7 @@ mod plot {
             value_type: ValueType,
             axis_scale: AxisScale,
         ) -> Child {
-            let mut f = Figure::new();
-            let input_suffix = match value_type {
-                ValueType::Bytes => " Size (Bytes)",
-                ValueType::Elements => " Size (Elements)",
-                ValueType::Value => "",
-            };
-            f.set(Font(DEFAULT_FONT))
-                .set(SIZE)
-                .configure(Key, |k| {
-                    k.set(Justification::Left)
-                        .set(Order::SampleText)
-                        .set(Position::Outside(Vertical::Top, Horizontal::Right))
-                })
-                .set(Title(format!(
-                    "{}: Comparison",
-                    escape_underscores(group_id)
-                )))
-                .configure(Axis::BottomX, |a| {
-                    a.set(Label(format!("Input{}", input_suffix)))
-                        .set(axis_scale.to_gnuplot())
-                });
-            let mut max = 0.0;
-            let mut i = 0;
-            for (key, group) in &all_curves
-                .into_iter()
-                .group_by(|&&&(ref id, _)| &id.function_id)
-            {
-                let mut tuples: Vec<_> = group
-                    .into_iter()
-                    .map(|&&(ref id, ref sample)| {
-                        let x = id.as_number().unwrap();
-                        let y = Sample::new(sample).mean();
-                        if y > max {
-                            max = y;
-                        }
-                        (x, y)
-                    })
-                    .collect();
-                tuples
-                    .sort_by(|&(ax, _), &(bx, _)| (ax.partial_cmp(&bx).unwrap_or(Ordering::Less)));
-                let (xs, ys): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
-                let function_name = key
-                    .as_ref()
-                    .map(|string| escape_underscores(string))
-                    .unwrap();
-                f.plot(Lines { x: &xs, y: &ys }, |c| {
-                    c.set(LINEWIDTH)
-                        .set(Label(function_name))
-                        .set(LineType::Solid)
-                        .set(COMPARISON_COLORS[i % NUM_COLORS])
-                })
-                .plot(Points { x: &xs, y: &ys }, |p| {
-                    p.set(PointType::FilledCircle)
-                        .set(POINT_SIZE)
-                        .set(COMPARISON_COLORS[i % NUM_COLORS])
-                });
-                i += 1;
-            }
-            let (scale, prefix) = scale_time(max);
-            f.configure(Axis::LeftY, |a| {
-                a.configure(Grid::Major, |g| g.show())
-                    .configure(Grid::Minor, |g| g.hide())
-                    .set(Label(format!("Average time ({}s)", prefix)))
-                    .set(axis_scale.to_gnuplot())
-                    .set(ScaleFactor(scale))
-            });
-            debug_script(&path, &f);
-            f.set(Output(path.as_ref().to_owned())).draw().unwrap()
+            unimplemented!()
         }
         pub fn violin<P: AsRef<Path>>(
             group_id: &str,
@@ -1056,101 +741,14 @@ mod plot {
             path: P,
             axis_scale: AxisScale,
         ) -> Child {
-            let all_curves_vec = all_curves.iter().rev().map(|&t| t).collect::<Vec<_>>();
-            let all_curves: &[&(BenchmarkId, Vec<f64>)] = &*all_curves_vec;
-            let kdes = all_curves
-                .iter()
-                .map(|&&(_, ref sample)| {
-                    let (x, mut y) = kde::sweep(Sample::new(sample), KDE_POINTS, None);
-                    let y_max = Sample::new(&y).max();
-                    for y in y.iter_mut() {
-                        *y /= y_max;
-                    }
-                    (x, y)
-                })
-                .collect::<Vec<_>>();
-            let mut xs = kdes
-                .iter()
-                .flat_map(|&(ref x, _)| x.iter())
-                .filter(|&&x| x > 0.);
-            let (mut min, mut max) = {
-                let &first = xs.next().unwrap();
-                (first, first)
-            };
-            for &e in xs {
-                if e < min {
-                    min = e;
-                } else if e > max {
-                    max = e;
-                }
-            }
-            let (scale, prefix) = scale_time(max);
-            let tics = || (0..).map(|x| (f64::from(x)) + 0.5);
-            let size = Size(1280, 200 + (25 * all_curves.len()));
-            let mut f = Figure::new();
-            f.set(Font(DEFAULT_FONT))
-                .set(size)
-                .set(Title(format!(
-                    "{}: Violin plot",
-                    escape_underscores(group_id)
-                )))
-                .configure(Axis::BottomX, |a| {
-                    a.configure(Grid::Major, |g| g.show())
-                        .configure(Grid::Minor, |g| g.hide())
-                        .set(Label(format!("Average time ({}s)", prefix)))
-                        .set(axis_scale.to_gnuplot())
-                        .set(ScaleFactor(scale))
-                })
-                .configure(Axis::LeftY, |a| {
-                    a.set(Label("Input"))
-                        .set(Range::Limits(0., all_curves.len() as f64))
-                        .set(TicLabels {
-                            positions: tics(),
-                            labels: all_curves
-                                .iter()
-                                .map(|&&(ref id, _)| escape_underscores(id.id())),
-                        })
-                });
-            let mut is_first = true;
-            for (i, &(ref x, ref y)) in kdes.iter().enumerate() {
-                let i = i as f64 + 0.5;
-                let y1 = y.iter().map(|&y| i + y * 0.5);
-                let y2 = y.iter().map(|&y| i - y * 0.5);
-                f.plot(
-                    FilledCurve {
-                        x: &**x,
-                        y1: y1,
-                        y2: y2,
-                    },
-                    |c| {
-                        if is_first {
-                            is_first = false;
-                            c.set(DARK_BLUE).set(Label("PDF")).set(Opacity(0.25))
-                        } else {
-                            c.set(DARK_BLUE).set(Opacity(0.25))
-                        }
-                    },
-                );
-            }
-            debug_script(&path, &f);
-            f.set(Output(path.as_ref().to_owned())).draw().unwrap()
+            unimplemented!()
         }
     }
     fn escape_underscores(string: &str) -> String {
-        string.replace("_", "\\_")
+        unimplemented!()
     }
     fn scale_time(ns: f64) -> (f64, &'static str) {
-        if ns < 10f64.powi(0) {
-            (10f64.powi(3), "p")
-        } else if ns < 10f64.powi(3) {
-            (10f64.powi(0), "n")
-        } else if ns < 10f64.powi(6) {
-            (10f64.powi(-3), "u")
-        } else if ns < 10f64.powi(9) {
-            (10f64.powi(-6), "m")
-        } else {
-            (10f64.powi(-9), "")
-        }
+        unimplemented!()
     }
     static DEFAULT_FONT: &'static str = "Helvetica";
     static KDE_POINTS: usize = 500;
@@ -1161,61 +759,10 @@ mod plot {
     const DARK_ORANGE: Color = Color::Rgb(255, 127, 0);
     const DARK_RED: Color = Color::Rgb(227, 26, 28);
     fn debug_script<P: AsRef<Path>>(path: P, figure: &Figure) {
-        if ::debug_enabled() {
-            let mut script_path = path.as_ref().to_owned();
-            script_path.set_extension("gnuplot");
-            println!("Writing gnuplot script to {:?}", script_path);
-            let result = figure.save(script_path.as_path());
-            if let Err(e) = result {
-                error!("Failed to write debug output: {}", e);
-            }
-        }
+        unimplemented!()
     }
     pub fn pdf_small<P: AsRef<Path>>(sample: &Sample<f64>, path: P, size: Option<Size>) -> Child {
-        let (x_scale, prefix) = scale_time(sample.max());
-        let mean = sample.mean();
-        let (xs, ys, mean_y) = kde::sweep_and_estimate(sample, KDE_POINTS, None, mean);
-        let xs_ = Sample::new(&xs);
-        let ys_ = Sample::new(&ys);
-        let y_limit = ys_.max() * 1.1;
-        let zeros = iter::repeat(0);
-        let mut figure = Figure::new();
-        figure
-            .set(Font(DEFAULT_FONT))
-            .set(size.unwrap_or(SIZE))
-            .configure(Axis::BottomX, |a| {
-                a.set(Label(format!("Average time ({}s)", prefix)))
-                    .set(Range::Limits(xs_.min() * x_scale, xs_.max() * x_scale))
-                    .set(ScaleFactor(x_scale))
-            })
-            .configure(Axis::LeftY, |a| {
-                a.set(Label("Density (a.u.)"))
-                    .set(Range::Limits(0., y_limit))
-            })
-            .configure(Axis::RightY, |a| a.hide())
-            .configure(Key, |k| k.hide())
-            .plot(
-                FilledCurve {
-                    x: &*xs,
-                    y1: &*ys,
-                    y2: zeros,
-                },
-                |c| {
-                    c.set(Axes::BottomXRightY)
-                        .set(DARK_BLUE)
-                        .set(Label("PDF"))
-                        .set(Opacity(0.25))
-                },
-            )
-            .plot(
-                Lines {
-                    x: &[mean, mean],
-                    y: &[0., mean_y],
-                },
-                |c| c.set(DARK_BLUE).set(LINEWIDTH).set(Label("Mean")),
-            );
-        debug_script(&path, &figure);
-        figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
+        unimplemented!()
     }
     pub fn pdf<P: AsRef<Path>>(
         data: Data<f64, f64>,
@@ -1224,189 +771,7 @@ mod plot {
         path: P,
         size: Option<Size>,
     ) -> Child {
-        let (x_scale, prefix) = scale_time(labeled_sample.max());
-        let mean = labeled_sample.mean();
-        let &max_iters = data
-            .x()
-            .as_slice()
-            .iter()
-            .max_by_key(|&&iters| iters as u64)
-            .unwrap();
-        let exponent = (max_iters.log10() / 3.).floor() as i32 * 3;
-        let y_scale = 10f64.powi(-exponent);
-        let y_label = if exponent == 0 {
-            "Iterations".to_owned()
-        } else {
-            format!("Iterations (x 10^{})", exponent)
-        };
-        let (xs, ys) = kde::sweep(&labeled_sample, KDE_POINTS, None);
-        let xs_ = Sample::new(&xs);
-        let (lost, lomt, himt, hist) = labeled_sample.fences();
-        let vertical = &[0., max_iters];
-        let zeros = iter::repeat(0);
-        let mut figure = Figure::new();
-        figure
-            .set(Font(DEFAULT_FONT))
-            .set(size.unwrap_or(SIZE))
-            .configure(Axis::BottomX, |a| {
-                a.set(Label(format!("Average time ({}s)", prefix)))
-                    .set(Range::Limits(xs_.min() * x_scale, xs_.max() * x_scale))
-                    .set(ScaleFactor(x_scale))
-            })
-            .configure(Axis::LeftY, |a| {
-                a.set(Label(y_label))
-                    .set(Range::Limits(0., max_iters * y_scale))
-                    .set(ScaleFactor(y_scale))
-            })
-            .configure(Axis::RightY, |a| a.set(Label("Density (a.u.)")))
-            .configure(Key, |k| {
-                k.set(Justification::Left)
-                    .set(Order::SampleText)
-                    .set(Position::Outside(Vertical::Top, Horizontal::Right))
-            })
-            .plot(
-                FilledCurve {
-                    x: &*xs,
-                    y1: &*ys,
-                    y2: zeros,
-                },
-                |c| {
-                    c.set(Axes::BottomXRightY)
-                        .set(DARK_BLUE)
-                        .set(Label("PDF"))
-                        .set(Opacity(0.25))
-                },
-            )
-            .plot(
-                Lines {
-                    x: &[mean, mean],
-                    y: vertical,
-                },
-                |c| {
-                    c.set(DARK_BLUE)
-                        .set(LINEWIDTH)
-                        .set(LineType::Dash)
-                        .set(Label("Mean"))
-                },
-            )
-            .plot(
-                Points {
-                    x: labeled_sample.iter().filter_map(|(t, label)| {
-                        if label.is_outlier() {
-                            None
-                        } else {
-                            Some(t)
-                        }
-                    }),
-                    y: labeled_sample
-                        .iter()
-                        .zip(data.x().as_slice().iter())
-                        .filter_map(
-                            |((_, label), i)| {
-                                if label.is_outlier() {
-                                    None
-                                } else {
-                                    Some(i)
-                                }
-                            },
-                        ),
-                },
-                |c| {
-                    c.set(DARK_BLUE)
-                        .set(Label("\"Clean\" sample"))
-                        .set(PointType::FilledCircle)
-                        .set(POINT_SIZE)
-                },
-            )
-            .plot(
-                Points {
-                    x: labeled_sample.iter().filter_map(|(x, label)| {
-                        if label.is_mild() {
-                            Some(x)
-                        } else {
-                            None
-                        }
-                    }),
-                    y: labeled_sample
-                        .iter()
-                        .zip(data.x().as_slice().iter())
-                        .filter_map(
-                            |((_, label), i)| {
-                                if label.is_mild() {
-                                    Some(i)
-                                } else {
-                                    None
-                                }
-                            },
-                        ),
-                },
-                |c| {
-                    c.set(DARK_ORANGE)
-                        .set(Label("Mild outliers"))
-                        .set(POINT_SIZE)
-                        .set(PointType::FilledCircle)
-                },
-            )
-            .plot(
-                Points {
-                    x: labeled_sample.iter().filter_map(|(x, label)| {
-                        if label.is_severe() {
-                            Some(x)
-                        } else {
-                            None
-                        }
-                    }),
-                    y: labeled_sample
-                        .iter()
-                        .zip(data.x().as_slice().iter())
-                        .filter_map(
-                            |((_, label), i)| {
-                                if label.is_severe() {
-                                    Some(i)
-                                } else {
-                                    None
-                                }
-                            },
-                        ),
-                },
-                |c| {
-                    c.set(DARK_RED)
-                        .set(Label("Severe outliers"))
-                        .set(POINT_SIZE)
-                        .set(PointType::FilledCircle)
-                },
-            )
-            .plot(
-                Lines {
-                    x: &[lomt, lomt],
-                    y: vertical,
-                },
-                |c| c.set(DARK_ORANGE).set(LINEWIDTH).set(LineType::Dash),
-            )
-            .plot(
-                Lines {
-                    x: &[himt, himt],
-                    y: vertical,
-                },
-                |c| c.set(DARK_ORANGE).set(LINEWIDTH).set(LineType::Dash),
-            )
-            .plot(
-                Lines {
-                    x: &[lost, lost],
-                    y: vertical,
-                },
-                |c| c.set(DARK_RED).set(LINEWIDTH).set(LineType::Dash),
-            )
-            .plot(
-                Lines {
-                    x: &[hist, hist],
-                    y: vertical,
-                },
-                |c| c.set(DARK_RED).set(LINEWIDTH).set(LineType::Dash),
-            );
-        figure.set(Title(escape_underscores(id.id())));
-        debug_script(&path, &figure);
-        figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
+        unimplemented!()
     }
     pub fn regression<P: AsRef<Path>>(
         data: Data<f64, f64>,
@@ -1417,82 +782,7 @@ mod plot {
         size: Option<Size>,
         thumbnail_mode: bool,
     ) -> Child {
-        let (max_iters, max_elapsed) = (data.x().max(), data.y().max());
-        let (y_scale, prefix) = scale_time(max_elapsed);
-        let exponent = (max_iters.log10() / 3.).floor() as i32 * 3;
-        let x_scale = 10f64.powi(-exponent);
-        let x_label = if exponent == 0 {
-            "Iterations".to_owned()
-        } else {
-            format!("Iterations (x 10^{})", exponent)
-        };
-        let lb = lb.0 * max_iters;
-        let point = point.0 * max_iters;
-        let ub = ub.0 * max_iters;
-        let max_iters = max_iters;
-        let mut figure = Figure::new();
-        figure
-            .set(Font(DEFAULT_FONT))
-            .set(size.unwrap_or(SIZE))
-            .configure(Key, |k| {
-                if thumbnail_mode {
-                    k.hide();
-                }
-                k.set(Justification::Left)
-                    .set(Order::SampleText)
-                    .set(Position::Inside(Vertical::Top, Horizontal::Left))
-            })
-            .configure(Axis::BottomX, |a| {
-                a.configure(Grid::Major, |g| g.show())
-                    .set(Label(x_label))
-                    .set(ScaleFactor(x_scale))
-            })
-            .configure(Axis::LeftY, |a| {
-                a.configure(Grid::Major, |g| g.show())
-                    .set(Label(format!("Total time ({}s)", prefix)))
-                    .set(ScaleFactor(y_scale))
-            })
-            .plot(
-                Points {
-                    x: data.x().as_slice(),
-                    y: data.y().as_slice(),
-                },
-                |c| {
-                    c.set(DARK_BLUE)
-                        .set(Label("Sample"))
-                        .set(PointSize(0.5))
-                        .set(PointType::FilledCircle)
-                },
-            )
-            .plot(
-                Lines {
-                    x: &[0., max_iters],
-                    y: &[0., point],
-                },
-                |c| {
-                    c.set(DARK_BLUE)
-                        .set(LINEWIDTH)
-                        .set(Label("Linear regression"))
-                        .set(LineType::Solid)
-                },
-            )
-            .plot(
-                FilledCurve {
-                    x: &[0., max_iters],
-                    y1: &[0., lb],
-                    y2: &[0., ub],
-                },
-                |c| {
-                    c.set(DARK_BLUE)
-                        .set(Label("Confidence interval"))
-                        .set(Opacity(0.25))
-                },
-            );
-        if !thumbnail_mode {
-            figure.set(Title(escape_underscores(id.id())));
-        }
-        debug_script(&path, &figure);
-        figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
+        unimplemented!()
     }
     pub(crate) fn abs_distributions<P: AsRef<Path>>(
         distributions: &Distributions,
@@ -1500,93 +790,7 @@ mod plot {
         id: &BenchmarkId,
         output_directory: P,
     ) -> Vec<Child> {
-        distributions
-            .iter()
-            .map(|(&statistic, distribution)| {
-                let path = output_directory
-                    .as_ref()
-                    .join(id.to_string())
-                    .join("report")
-                    .join(format!("{}.svg", statistic));
-                let estimate = estimates[&statistic];
-                let ci = estimate.confidence_interval;
-                let (lb, ub) = (ci.lower_bound, ci.upper_bound);
-                let start = lb - (ub - lb) / 9.;
-                let end = ub + (ub - lb) / 9.;
-                let (xs, ys) = kde::sweep(distribution, KDE_POINTS, Some((start, end)));
-                let xs_ = Sample::new(&xs);
-                let (x_scale, prefix) = scale_time(xs_.max());
-                let y_scale = x_scale.recip();
-                let p = estimate.point_estimate;
-                let n_p = xs.iter().enumerate().find(|&(_, &x)| x >= p).unwrap().0;
-                let y_p = ys[n_p - 1]
-                    + (ys[n_p] - ys[n_p - 1]) / (xs[n_p] - xs[n_p - 1]) * (p - xs[n_p - 1]);
-                let zero = iter::repeat(0);
-                let start = xs.iter().enumerate().find(|&(_, &x)| x >= lb).unwrap().0;
-                let end = xs
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .find(|&(_, &x)| x <= ub)
-                    .unwrap()
-                    .0;
-                let len = end - start;
-                let mut figure = Figure::new();
-                figure
-                    .set(Font(DEFAULT_FONT))
-                    .set(SIZE)
-                    .set(Title(format!(
-                        "{}: {}",
-                        escape_underscores(id.id()),
-                        statistic
-                    )))
-                    .configure(Axis::BottomX, |a| {
-                        a.set(Label(format!("Average time ({}s)", prefix)))
-                            .set(Range::Limits(xs_.min() * x_scale, xs_.max() * x_scale))
-                            .set(ScaleFactor(x_scale))
-                    })
-                    .configure(Axis::LeftY, |a| {
-                        a.set(Label("Density (a.u.)")).set(ScaleFactor(y_scale))
-                    })
-                    .configure(Key, |k| {
-                        k.set(Justification::Left)
-                            .set(Order::SampleText)
-                            .set(Position::Outside(Vertical::Top, Horizontal::Right))
-                    })
-                    .plot(Lines { x: &*xs, y: &*ys }, |c| {
-                        c.set(DARK_BLUE)
-                            .set(LINEWIDTH)
-                            .set(Label("Bootstrap distribution"))
-                            .set(LineType::Solid)
-                    })
-                    .plot(
-                        FilledCurve {
-                            x: xs.iter().skip(start).take(len),
-                            y1: ys.iter().skip(start),
-                            y2: zero,
-                        },
-                        |c| {
-                            c.set(DARK_BLUE)
-                                .set(Label("Confidence interval"))
-                                .set(Opacity(0.25))
-                        },
-                    )
-                    .plot(
-                        Lines {
-                            x: &[p, p],
-                            y: &[0., y_p],
-                        },
-                        |c| {
-                            c.set(DARK_BLUE)
-                                .set(LINEWIDTH)
-                                .set(Label("Point estimate"))
-                                .set(LineType::Dash)
-                        },
-                    );
-                debug_script(&path, &figure);
-                figure.set(Output(path)).draw().unwrap()
-            })
-            .collect::<Vec<_>>()
+        unimplemented!()
     }
     pub(crate) fn rel_distributions<P: AsRef<Path>>(
         distributions: &Distributions,
@@ -1595,117 +799,7 @@ mod plot {
         output_directory: P,
         nt: f64,
     ) -> Vec<Child> {
-        let mut figure = Figure::new();
-        figure
-            .set(Font(DEFAULT_FONT))
-            .set(SIZE)
-            .configure(Axis::LeftY, |a| a.set(Label("Density (a.u.)")))
-            .configure(Key, |k| {
-                k.set(Justification::Left)
-                    .set(Order::SampleText)
-                    .set(Position::Outside(Vertical::Top, Horizontal::Right))
-            });
-        distributions
-            .iter()
-            .map(|(&statistic, distribution)| {
-                let path = output_directory
-                    .as_ref()
-                    .join(id.to_string())
-                    .join("report")
-                    .join("change")
-                    .join(format!("{}.svg", statistic));
-                let estimate = estimates[&statistic];
-                let ci = estimate.confidence_interval;
-                let (lb, ub) = (ci.lower_bound, ci.upper_bound);
-                let start = lb - (ub - lb) / 9.;
-                let end = ub + (ub - lb) / 9.;
-                let (xs, ys) = kde::sweep(distribution, KDE_POINTS, Some((start, end)));
-                let xs_ = Sample::new(&xs);
-                let p = estimate.point_estimate;
-                let n_p = xs.iter().enumerate().find(|&(_, &x)| x >= p).unwrap().0;
-                let y_p = ys[n_p - 1]
-                    + (ys[n_p] - ys[n_p - 1]) / (xs[n_p] - xs[n_p - 1]) * (p - xs[n_p - 1]);
-                let one = iter::repeat(1);
-                let zero = iter::repeat(0);
-                let start = xs.iter().enumerate().find(|&(_, &x)| x >= lb).unwrap().0;
-                let end = xs
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .find(|&(_, &x)| x <= ub)
-                    .unwrap()
-                    .0;
-                let len = end - start;
-                let x_min = xs_.min();
-                let x_max = xs_.max();
-                let (fc_start, fc_end) = if nt < x_min || -nt > x_max {
-                    let middle = (x_min + x_max) / 2.;
-                    (middle, middle)
-                } else {
-                    (
-                        if -nt < x_min { x_min } else { -nt },
-                        if nt > x_max { x_max } else { nt },
-                    )
-                };
-                let mut figure = figure.clone();
-                figure
-                    .set(Title(format!(
-                        "{}: {}",
-                        escape_underscores(id.id()),
-                        statistic
-                    )))
-                    .configure(Axis::BottomX, |a| {
-                        a.set(Label("Relative change (%)"))
-                            .set(Range::Limits(x_min * 100., x_max * 100.))
-                            .set(ScaleFactor(100.))
-                    })
-                    .plot(Lines { x: &*xs, y: &*ys }, |c| {
-                        c.set(DARK_BLUE)
-                            .set(LINEWIDTH)
-                            .set(Label("Bootstrap distribution"))
-                            .set(LineType::Solid)
-                    })
-                    .plot(
-                        FilledCurve {
-                            x: xs.iter().skip(start).take(len),
-                            y1: ys.iter().skip(start),
-                            y2: zero.clone(),
-                        },
-                        |c| {
-                            c.set(DARK_BLUE)
-                                .set(Label("Confidence interval"))
-                                .set(Opacity(0.25))
-                        },
-                    )
-                    .plot(
-                        Lines {
-                            x: &[p, p],
-                            y: &[0., y_p],
-                        },
-                        |c| {
-                            c.set(DARK_BLUE)
-                                .set(LINEWIDTH)
-                                .set(Label("Point estimate"))
-                                .set(LineType::Dash)
-                        },
-                    )
-                    .plot(
-                        FilledCurve {
-                            x: &[fc_start, fc_end],
-                            y1: one,
-                            y2: zero,
-                        },
-                        |c| {
-                            c.set(Axes::BottomXRightY)
-                                .set(DARK_RED)
-                                .set(Label("Noise threshold"))
-                                .set(Opacity(0.1))
-                        },
-                    );
-                debug_script(&path, &figure);
-                figure.set(Output(path)).draw().unwrap()
-            })
-            .collect::<Vec<_>>()
+        unimplemented!()
     }
     pub fn t_test<P: AsRef<Path>>(
         t: f64,
@@ -1713,56 +807,7 @@ mod plot {
         id: &BenchmarkId,
         output_directory: P,
     ) -> Child {
-        let path = output_directory
-            .as_ref()
-            .join(id.to_string())
-            .join("report")
-            .join("change")
-            .join("t-test.svg");
-        let (xs, ys) = kde::sweep(distribution, KDE_POINTS, None);
-        let zero = iter::repeat(0);
-        let mut figure = Figure::new();
-        figure
-            .set(Font(DEFAULT_FONT))
-            .set(SIZE)
-            .set(Title(format!(
-                "{}: Welch t test",
-                escape_underscores(id.id())
-            )))
-            .configure(Axis::BottomX, |a| a.set(Label("t score")))
-            .configure(Axis::LeftY, |a| a.set(Label("Density")))
-            .configure(Key, |k| {
-                k.set(Justification::Left)
-                    .set(Order::SampleText)
-                    .set(Position::Outside(Vertical::Top, Horizontal::Right))
-            })
-            .plot(
-                FilledCurve {
-                    x: &*xs,
-                    y1: &*ys,
-                    y2: zero,
-                },
-                |c| {
-                    c.set(DARK_BLUE)
-                        .set(Label("t distribution"))
-                        .set(Opacity(0.25))
-                },
-            )
-            .plot(
-                Lines {
-                    x: &[t, t],
-                    y: &[0, 1],
-                },
-                |c| {
-                    c.set(Axes::BottomXRightY)
-                        .set(DARK_BLUE)
-                        .set(LINEWIDTH)
-                        .set(Label("t statistic"))
-                        .set(LineType::Solid)
-                },
-            );
-        debug_script(&path, &figure);
-        figure.set(Output(path)).draw().unwrap()
+        unimplemented!()
     }
 }
 #[cfg(feature = "html_reports")]
@@ -1783,21 +828,7 @@ mod html {
     use Estimate;
     const THUMBNAIL_SIZE: Size = Size(450, 300);
     fn wait_on_gnuplot(children: Vec<Child>) {
-        let start = ::std::time::Instant::now();
-        let child_count = children.len();
-        for child in children {
-            match child.wait_with_output() {
-                Ok(ref out) if out.status.success() => {}
-                Ok(out) => error!("Error in Gnuplot: {}", String::from_utf8_lossy(&out.stderr)),
-                Err(e) => error!("Got IO error while waiting for Gnuplot to complete: {}", e),
-            }
-        }
-        let elapsed = &start.elapsed();
-        info!(
-            "Waiting for {} gnuplot processes took {}",
-            child_count,
-            ::format::time(::DurationExt::to_nanos(elapsed) as f64)
-        );
+        unimplemented!()
     }
     #[derive(Serialize)]
     struct Context {
@@ -1822,10 +853,7 @@ mod html {
     }
     impl IndividualBenchmark {
         fn new(path_prefix: &str, id: &BenchmarkId) -> IndividualBenchmark {
-            IndividualBenchmark {
-                name: id.id().to_owned(),
-                path: format!("{}/{}", path_prefix, id.id()),
-            }
+            unimplemented!()
         }
     }
     #[derive(Serialize)]
@@ -1850,10 +878,7 @@ mod html {
     }
     impl Plot {
         fn new(name: &str, url: &str) -> Plot {
-            Plot {
-                name: name.to_owned(),
-                url: url.to_owned(),
-            }
+            unimplemented!()
         }
     }
     #[derive(Serialize)]
@@ -1887,10 +912,18 @@ mod html {
         }
     }
     impl Report for Html {
-        fn benchmark_start(&self, _: &BenchmarkId, _: &ReportContext) {}
-        fn warmup(&self, _: &BenchmarkId, _: &ReportContext, _: f64) {}
-        fn analysis(&self, _: &BenchmarkId, _: &ReportContext) {}
-        fn measurement_start(&self, _: &BenchmarkId, _: &ReportContext, _: u64, _: f64, _: u64) {}
+        fn benchmark_start(&self, _: &BenchmarkId, _: &ReportContext) {
+            unimplemented!()
+        }
+        fn warmup(&self, _: &BenchmarkId, _: &ReportContext, _: f64) {
+            unimplemented!()
+        }
+        fn analysis(&self, _: &BenchmarkId, _: &ReportContext) {
+            unimplemented!()
+        }
+        fn measurement_start(&self, _: &BenchmarkId, _: &ReportContext, _: u64, _: f64, _: u64) {
+            unimplemented!()
+        }
         fn measurement_complete(
             &self,
             id: &BenchmarkId,
@@ -1898,7 +931,7 @@ mod html {
             measurements: &MeasurementData,
         ) {
             if !report_context.plotting.is_enabled() {
-                return;
+                unimplemented!()
             }
             try_else_return!(fs::mkdirp(
                 &report_context
@@ -1908,11 +941,7 @@ mod html {
             ));
             let slope_estimate = &measurements.absolute_estimates[&Statistic::Slope];
             fn time_interval(est: &Estimate) -> ConfidenceInterval {
-                ConfidenceInterval {
-                    lower: format::time(est.confidence_interval.lower_bound),
-                    point: format::time(est.point_estimate),
-                    upper: format::time(est.confidence_interval.upper_bound),
-                }
+                unimplemented!()
             }
             let data = Data::new(
                 measurements.iter_counts.as_slice(),
@@ -1975,86 +1004,12 @@ mod html {
             ));
         }
         fn summarize(&self, context: &ReportContext, all_ids: &[BenchmarkId]) {
-            if !context.plotting.is_enabled() {
-                return;
-            }
-            let mut all_plots = vec![];
-            let group_id = &all_ids[0].group_id;
-            let mut function_ids = BTreeSet::new();
-            for id in all_ids.iter() {
-                if let Some(ref function_id) = id.function_id {
-                    function_ids.insert(function_id);
-                }
-            }
-            let data: Vec<(BenchmarkId, Vec<f64>)> =
-                self.load_summary_data(&context.output_directory, all_ids);
-            for function_id in function_ids {
-                let samples_with_function: Vec<_> = data
-                    .iter()
-                    .by_ref()
-                    .filter(|&&(ref id, _)| id.function_id.as_ref() == Some(function_id))
-                    .collect();
-                if samples_with_function.len() > 1 {
-                    let subgroup_id = format!("{}/{}", group_id, function_id);
-                    all_plots.extend(self.generate_summary(
-                        &subgroup_id,
-                        &*samples_with_function,
-                        context,
-                        false,
-                    ));
-                }
-            }
-            all_plots.extend(self.generate_summary(
-                group_id,
-                &*(data.iter().by_ref().collect::<Vec<_>>()),
-                context,
-                true,
-            ));
-            wait_on_gnuplot(all_plots)
+            unimplemented!()
         }
     }
     impl Html {
         fn comparison(&self, measurements: &MeasurementData) -> Option<Comparison> {
-            if let Some(ref comp) = measurements.comparison {
-                let different_mean = comp.p_value < comp.significance_threshold;
-                let mean_est = comp.relative_estimates[&Statistic::Mean];
-                let explanation_str: String;
-                if !different_mean {
-                    explanation_str = "No change in performance detected.".to_owned();
-                } else {
-                    let comparison = compare_to_threshold(&mean_est, comp.noise_threshold);
-                    match comparison {
-                        ComparisonResult::Improved => {
-                            explanation_str = "Performance has improved.".to_owned();
-                        }
-                        ComparisonResult::Regressed => {
-                            explanation_str = "Performance has regressed.".to_owned();
-                        }
-                        ComparisonResult::NonSignificant => {
-                            explanation_str = "Change within noise threshold.".to_owned();
-                        }
-                    }
-                }
-                let comp = Comparison {
-                    p_value: format!("{:.2}", comp.p_value),
-                    inequality: (if different_mean { "<" } else { ">" }).to_owned(),
-                    significance_level: format!("{:.2}", comp.significance_threshold),
-                    explanation: explanation_str,
-                    change: ConfidenceInterval {
-                        point: format::change(mean_est.point_estimate, true),
-                        lower: format::change(mean_est.confidence_interval.lower_bound, true),
-                        upper: format::change(mean_est.confidence_interval.upper_bound, true),
-                    },
-                    additional_plots: vec![
-                        Plot::new("Change in mean", "change/mean.svg"),
-                        Plot::new("Change in median", "change/median.svg"),
-                        Plot::new("T-Test", "change/t-test.svg"),
-                    ],
-                };
-                Some(comp)
-            } else {
-                None
-            }
+            unimplemented!()
         }
         fn generate_plots(
             &self,
@@ -2172,21 +1127,7 @@ mod html {
             output_dir: P,
             all_ids: &[BenchmarkId],
         ) -> Vec<(BenchmarkId, Vec<f64>)> {
-            let output_dir = output_dir.as_ref();
-            all_ids
-                .iter()
-                .filter_map(|id| {
-                    let entry = output_dir.join(id.id()).join("new");
-                    let (iters, times): (Vec<f64>, Vec<f64>) =
-                        try_else_return!(fs::load(&entry.join("sample.json")), || None);
-                    let avg_times = iters
-                        .into_iter()
-                        .zip(times.into_iter())
-                        .map(|(iters, time)| time / iters)
-                        .collect::<Vec<_>>();
-                    Some((id.clone(), avg_times))
-                })
-                .collect::<Vec<_>>()
+            unimplemented!()
         }
         fn generate_summary(
             &self,
@@ -2195,62 +1136,7 @@ mod html {
             report_context: &ReportContext,
             full_summary: bool,
         ) -> Vec<Child> {
-            let mut gnuplots = vec![];
-            let report_dir = report_context
-                .output_directory
-                .join(group_id)
-                .join("report");
-            try_else_return!(fs::mkdirp(&report_dir), || gnuplots);
-            let violin_path = report_dir.join("violin.svg");
-            gnuplots.push(plot::summary::violin(
-                group_id,
-                data,
-                &violin_path,
-                report_context.plot_config.summary_scale,
-            ));
-            let value_types: Vec<_> = data.iter().map(|&&(ref id, _)| id.value_type()).collect();
-            let function_types: BTreeSet<_> =
-                data.iter().map(|&&(ref id, _)| &id.function_id).collect();
-            let mut line_path = None;
-            if value_types.iter().all(|x| x == &value_types[0]) && function_types.len() > 1 {
-                if let Some(value_type) = value_types[0] {
-                    let path = report_dir.join("lines.svg");
-                    gnuplots.push(plot::summary::line_comparison(
-                        group_id,
-                        data,
-                        &path,
-                        value_type,
-                        report_context.plot_config.summary_scale,
-                    ));
-                    line_path = Some(path);
-                }
-            }
-            let path_prefix = if full_summary {
-                "../../.."
-            } else {
-                "../../../.."
-            };
-            let benchmarks = data
-                .iter()
-                .map(|&&(ref id, _)| IndividualBenchmark::new(path_prefix, id))
-                .collect();
-            let context = SummaryContext {
-                group_id: group_id.to_owned(),
-                thumbnail_width: THUMBNAIL_SIZE.0,
-                thumbnail_height: THUMBNAIL_SIZE.1,
-                violin_plot: Some(violin_path),
-                line_chart: line_path,
-                benchmarks: benchmarks,
-            };
-            let text = self
-                .handlebars
-                .render("summary_report", &context)
-                .expect("Failed to render summary report template");
-            try_else_return!(
-                fs::save_string(&text, &report_dir.join("index.html")),
-                || gnuplots
-            );
-            gnuplots
+            unimplemented!()
         }
     }
     enum ComparisonResult {
@@ -2259,16 +1145,7 @@ mod html {
         NonSignificant,
     }
     fn compare_to_threshold(estimate: &Estimate, noise: f64) -> ComparisonResult {
-        let ci = estimate.confidence_interval;
-        let lb = ci.lower_bound;
-        let ub = ci.upper_bound;
-        if lb < -noise && ub < -noise {
-            ComparisonResult::Improved
-        } else if lb > noise && ub > noise {
-            ComparisonResult::Regressed
-        } else {
-            ComparisonResult::NonSignificant
-        }
+        unimplemented!()
     }
 }
 use benchmark::BenchmarkConfig;
@@ -2283,15 +1160,11 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, mem};
 fn debug_enabled() -> bool {
-    std::env::vars().any(|(key, _)| key == "CRITERION_DEBUG")
+    unimplemented!()
 }
 #[cfg(not(feature = "real_blackbox"))]
 pub fn black_box<T>(dummy: T) -> T {
-    unsafe {
-        let ret = std::ptr::read_volatile(&dummy);
-        std::mem::forget(dummy);
-        ret
-    }
+    unimplemented!()
 }
 pub struct Fun<I: fmt::Debug> {
     f: NamedRoutine<I>,
@@ -2306,11 +1179,7 @@ impl Bencher {
     where
         R: FnMut() -> O,
     {
-        let start = Instant::now();
-        for _ in 0..self.iters {
-            black_box(routine());
-        }
-        self.elapsed = start.elapsed();
+        unimplemented!()
     }
 }
 pub struct Criterion {
@@ -2329,7 +1198,7 @@ impl Default for Criterion {
         #[cfg(feature = "html_reports")]
         {
             plotting = if criterion_plot::version().is_ok() {
-                Plotting::Enabled
+                unimplemented!()
             } else {
                 println!("Gnuplot not found, disabling plotting");
                 Plotting::NotAvailable
@@ -2359,7 +1228,6 @@ impl Default for Criterion {
         }
     }
 }
-impl Criterion {}
 mod plotting {
     #[derive(Debug, Clone, Copy)]
     pub enum Plotting {
@@ -2369,10 +1237,7 @@ mod plotting {
     }
     impl Plotting {
         pub fn is_enabled(&self) -> bool {
-            match *self {
-                Plotting::Enabled => true,
-                _ => false,
-            }
+            unimplemented!()
         }
     }
 }
@@ -2382,7 +1247,7 @@ trait DurationExt {
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 impl DurationExt for Duration {
     fn to_nanos(&self) -> u64 {
-        self.as_secs() * NANOS_PER_SEC + u64::from(self.subsec_nanos())
+        unimplemented!()
     }
 }
 #[derive(Clone, Copy, PartialEq, Deserialize, Serialize, Debug)]
