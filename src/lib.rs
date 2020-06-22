@@ -32,10 +32,6 @@ mod macros_private {
 }
 #[macro_use]
 mod analysis {
-    use benchmark::BenchmarkConfig;
-    use report::{BenchmarkId, ReportContext};
-    use routine::Routine;
-    use {ConfidenceInterval, Criterion, Estimate, Throughput};
     macro_rules! elapsed {
         ( $ msg : expr , $ block : expr ) => {{
             let start = ::std::time::Instant::now();
@@ -188,19 +184,11 @@ mod estimate {
         Slope,
         StdDev,
     }
-    impl fmt::Display for Statistic {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            unimplemented!()
-        }
-    }
     pub(crate) type Estimates = BTreeMap<Statistic, Estimate>;
     pub(crate) type Distributions = BTreeMap<Statistic, Distribution<f64>>;
 }
 mod format {
     use Throughput;
-    pub fn change(pct: f64, signed: bool) -> String {
-        unimplemented!()
-    }
     pub fn time(ns: f64) -> String {
         unimplemented!()
     }
@@ -212,13 +200,6 @@ mod fs {
     use error::{AccessError, Result};
     use serde::de::DeserializeOwned;
     use std::path::Path;
-    pub fn load<A, P: ?Sized>(path: &P) -> Result<A>
-    where
-        A: DeserializeOwned,
-        P: AsRef<Path>,
-    {
-        unimplemented!()
-    }
     pub fn mkdirp<P>(path: &P) -> Result<()>
     where
         P: AsRef<Path>,
@@ -249,9 +230,7 @@ mod metrics {
     }
 }
 mod program {
-    use std::fmt;
     use std::io::BufReader;
-    use std::marker::PhantomData;
     use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
     pub struct Program {
         buffer: String,
@@ -271,7 +250,6 @@ mod report {
     use std::collections::BTreeMap;
     use std::fmt;
     use std::path::PathBuf;
-    use Estimate;
     use {PlotConfiguration, Plotting, Throughput};
     pub(crate) struct ComparisonData {
         pub p_value: f64,
@@ -338,12 +316,6 @@ mod report {
             }
         }
         pub fn id(&self) -> &str {
-            unimplemented!()
-        }
-        pub fn as_number(&self) -> Option<f64> {
-            unimplemented!()
-        }
-        pub fn value_type(&self) -> Option<ValueType> {
             unimplemented!()
         }
     }
@@ -469,11 +441,6 @@ mod report {
             unimplemented!()
         }
     }
-    enum ComparisonResult {
-        Improved,
-        Regressed,
-        NonSignificant,
-    }
 }
 mod routine {
     use benchmark::BenchmarkConfig;
@@ -567,13 +534,6 @@ mod kde {
     use stats::univariate::kde::kernel::Gaussian;
     use stats::univariate::kde::{Bandwidth, Kde};
     use stats::univariate::Sample;
-    pub fn sweep(
-        sample: &Sample<f64>,
-        npoints: usize,
-        range: Option<(f64, f64)>,
-    ) -> (Box<[f64]>, Box<[f64]>) {
-        unimplemented!()
-    }
     pub fn sweep_and_estimate(
         sample: &Sample<f64>,
         npoints: usize,
@@ -598,14 +558,12 @@ mod kde {
 mod plot {
     use criterion_plot::prelude::*;
     use estimate::{Distributions, Estimates};
-    use kde;
     use report::BenchmarkId;
     use stats::bivariate::regression::Slope;
     use stats::bivariate::Data;
     use stats::univariate::outliers::tukey::LabeledSample;
     use stats::univariate::Sample;
     use stats::Distribution;
-    use std::iter;
     use std::path::Path;
     use std::process::Child;
     pub mod both {
@@ -613,7 +571,6 @@ mod plot {
         use super::{DARK_BLUE, DARK_RED, DEFAULT_FONT, KDE_POINTS, LINEWIDTH, SIZE};
         use criterion_plot::prelude::*;
         use estimate::Estimates;
-        use estimate::Statistic::Slope;
         use kde;
         use report::BenchmarkId;
         use stats::bivariate::Data;
@@ -621,7 +578,6 @@ mod plot {
         use std::iter;
         use std::path::Path;
         use std::process::Child;
-        use {ConfidenceInterval, Estimate};
         #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
         pub(crate) fn regression<P: AsRef<Path>>(
             base_data: Data<f64, f64>,
@@ -697,53 +653,6 @@ mod plot {
             figure.set(Output(path.as_ref().to_owned())).draw().unwrap()
         }
     }
-    pub mod summary {
-        use super::{debug_script, escape_underscores, scale_time};
-        use super::{DARK_BLUE, DEFAULT_FONT, KDE_POINTS, LINEWIDTH, POINT_SIZE, SIZE};
-        use criterion_plot::prelude::*;
-        use itertools::Itertools;
-        use kde;
-        use report::{BenchmarkId, ValueType};
-        use stats::univariate::Sample;
-        use std::cmp::Ordering;
-        use std::path::Path;
-        use std::process::Child;
-        use AxisScale;
-        const NUM_COLORS: usize = 8;
-        static COMPARISON_COLORS: [Color; NUM_COLORS] = [
-            Color::Rgb(178, 34, 34),
-            Color::Rgb(46, 139, 87),
-            Color::Rgb(0, 139, 139),
-            Color::Rgb(255, 215, 0),
-            Color::Rgb(0, 0, 139),
-            Color::Rgb(220, 20, 60),
-            Color::Rgb(139, 0, 139),
-            Color::Rgb(0, 255, 127),
-        ];
-        impl AxisScale {
-            fn to_gnuplot(&self) -> Scale {
-                unimplemented!()
-            }
-        }
-        #[cfg_attr(feature = "cargo-clippy", allow(explicit_counter_loop))]
-        pub fn line_comparison<P: AsRef<Path>>(
-            group_id: &str,
-            all_curves: &[&(BenchmarkId, Vec<f64>)],
-            path: P,
-            value_type: ValueType,
-            axis_scale: AxisScale,
-        ) -> Child {
-            unimplemented!()
-        }
-        pub fn violin<P: AsRef<Path>>(
-            group_id: &str,
-            all_curves: &[&(BenchmarkId, Vec<f64>)],
-            path: P,
-            axis_scale: AxisScale,
-        ) -> Child {
-            unimplemented!()
-        }
-    }
     fn escape_underscores(string: &str) -> String {
         unimplemented!()
     }
@@ -754,9 +663,7 @@ mod plot {
     static KDE_POINTS: usize = 500;
     static SIZE: Size = Size(1280, 720);
     const LINEWIDTH: LineWidth = LineWidth(2.);
-    const POINT_SIZE: PointSize = PointSize(0.75);
     const DARK_BLUE: Color = Color::Rgb(31, 120, 180);
-    const DARK_ORANGE: Color = Color::Rgb(255, 127, 0);
     const DARK_RED: Color = Color::Rgb(227, 26, 28);
     fn debug_script<P: AsRef<Path>>(path: P, figure: &Figure) {
         unimplemented!()
@@ -822,7 +729,6 @@ mod html {
     use stats::bivariate::regression::Slope;
     use stats::bivariate::Data;
     use stats::univariate::Sample;
-    use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
     use std::process::Child;
     use Estimate;
@@ -850,20 +756,6 @@ mod html {
     struct IndividualBenchmark {
         name: String,
         path: String,
-    }
-    impl IndividualBenchmark {
-        fn new(path_prefix: &str, id: &BenchmarkId) -> IndividualBenchmark {
-            unimplemented!()
-        }
-    }
-    #[derive(Serialize)]
-    struct SummaryContext {
-        group_id: String,
-        thumbnail_width: usize,
-        thumbnail_height: usize,
-        violin_plot: Option<PathBuf>,
-        line_chart: Option<PathBuf>,
-        benchmarks: Vec<IndividualBenchmark>,
     }
     #[derive(Serialize)]
     struct ConfidenceInterval {
@@ -1122,30 +1014,11 @@ mod html {
             }
             wait_on_gnuplot(gnuplots);
         }
-        fn load_summary_data<P: AsRef<Path>>(
-            &self,
-            output_dir: P,
-            all_ids: &[BenchmarkId],
-        ) -> Vec<(BenchmarkId, Vec<f64>)> {
-            unimplemented!()
-        }
-        fn generate_summary(
-            &self,
-            group_id: &str,
-            data: &[&(BenchmarkId, Vec<f64>)],
-            report_context: &ReportContext,
-            full_summary: bool,
-        ) -> Vec<Child> {
-            unimplemented!()
-        }
     }
     enum ComparisonResult {
         Improved,
         Regressed,
         NonSignificant,
-    }
-    fn compare_to_threshold(estimate: &Estimate, noise: f64) -> ComparisonResult {
-        unimplemented!()
     }
 }
 use benchmark::BenchmarkConfig;
@@ -1159,13 +1032,6 @@ use std::env;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, mem};
-fn debug_enabled() -> bool {
-    unimplemented!()
-}
-#[cfg(not(feature = "real_blackbox"))]
-pub fn black_box<T>(dummy: T) -> T {
-    unimplemented!()
-}
 pub struct Fun<I: fmt::Debug> {
     f: NamedRoutine<I>,
 }
@@ -1244,7 +1110,6 @@ mod plotting {
 trait DurationExt {
     fn to_nanos(&self) -> u64;
 }
-const NANOS_PER_SEC: u64 = 1_000_000_000;
 impl DurationExt for Duration {
     fn to_nanos(&self) -> u64 {
         unimplemented!()
