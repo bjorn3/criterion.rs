@@ -4,7 +4,6 @@ extern crate criterion_stats as stats;
 extern crate failure;
 #[cfg(feature = "html_reports")]
 extern crate handlebars;
-extern crate serde;
 #[macro_use]
 extern crate log;
 #[macro_use]
