@@ -4,17 +4,17 @@ extern crate serde_json;
 extern crate tempdir;
 extern crate walkdir;
 
-use std::fs::File;
-use criterion::{Benchmark, Criterion, Fun, ParameterizedBenchmark, Throughput};
 use criterion::BenchmarkDefinition;
-use std::time::Duration;
-use std::path::PathBuf;
-use walkdir::WalkDir;
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::process::{Command, Stdio};
+use criterion::{Benchmark, Criterion, Fun, ParameterizedBenchmark, Throughput};
 use serde_json::value::Value;
+use std::cell::RefCell;
+use std::fs::File;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::rc::Rc;
+use std::time::Duration;
 use tempdir::TempDir;
+use walkdir::WalkDir;
 
 /*
  * Please note that these tests are not complete examples of how to use
@@ -28,14 +28,11 @@ fn temp_dir() -> TempDir {
 // recommended for real benchmarking, only for testing.
 fn short_benchmark(dir: &TempDir) -> Criterion {
     Criterion::default()
-        .output_directory(dir.path())
-        .warm_up_time(Duration::from_millis(250))
-        .measurement_time(Duration::from_millis(500))
-        .nresamples(1000)
 }
 
 #[test]
 fn test_bench_function() {
     let dir = temp_dir();
-    Benchmark::new("test_bench_function", move |b| b.iter(|| 10)).run("test_bench_function", &short_benchmark(&dir));
+    Benchmark::new("test_bench_function", move |b| b.iter(|| 10))
+        .run("test_bench_function", &short_benchmark(&dir));
 }
